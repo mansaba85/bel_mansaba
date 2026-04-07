@@ -91,7 +91,7 @@ Bell.init(
     day: { type: DataTypes.STRING },
     name: { type: DataTypes.STRING },
     time: { type: DataTypes.STRING },
-    sound: { type: DataTypes.STRING }, // Now stores filename/URL instead of base64
+    sound: { type: DataTypes.TEXT }, // Use TEXT to be safe
     soundName: { type: DataTypes.STRING },
   },
   { sequelize, modelName: 'Bell' }
@@ -223,6 +223,7 @@ app.post('/api/save', async (req, res) => {
       for (const category in schedules) {
         for (const day in schedules[category]) {
           for (const bell of schedules[category][day]) {
+            console.log(`Saving bell: ${bell.name}, sound: ${bell.sound}, soundName: ${bell.soundName}`);
             await Bell.create({
               ...bell,
               category,

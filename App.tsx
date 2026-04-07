@@ -24,6 +24,7 @@ const App: React.FC = () => {
     const [schedules, setSchedules] = useState<SchedulesData>(DEFAULT_SCHEDULES_DATA);
     const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>(Object.keys(DEFAULT_SCHEDULES_DATA)[0]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isDataLoaded, setIsDataLoaded] = useState(false);
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);
 
@@ -48,6 +49,7 @@ const App: React.FC = () => {
 
                     setSchoolName(data.schoolName || 'MA NU 01 Banyuputih');
                     setSchedules(Object.keys(cleanedSchedules).length > 0 ? cleanedSchedules : DEFAULT_SCHEDULES_DATA);
+                    setIsDataLoaded(true);
                     
                     const categories = Object.keys(cleanedSchedules);
                     if (data.activeScheduleCategory && categories.includes(data.activeScheduleCategory)) {
@@ -67,6 +69,7 @@ const App: React.FC = () => {
                 const savedSchedules = getFromLocalStorage('schedules', DEFAULT_SCHEDULES_DATA);
                 setSchoolName(savedSchool);
                 setSchedules(savedSchedules);
+                setIsDataLoaded(true);
                 
                 const categories = Object.keys(savedSchedules);
                 const savedCategory = getFromLocalStorage('activeScheduleCategory', categories[0]);
@@ -84,7 +87,7 @@ const App: React.FC = () => {
 
     // Save to backend whenever state changes (with a small delay to avoid too many requests)
     useEffect(() => {
-        if (isLoading) return;
+        if (isLoading || !isDataLoaded) return;
 
         const saveData = async () => {
             try {
@@ -116,7 +119,7 @@ const App: React.FC = () => {
 
         const timeoutId = setTimeout(saveData, 1000);
         return () => clearTimeout(timeoutId);
-    }, [schoolName, activeScheduleCategory, schedules, isLoading]);
+    }, [schoolName, activeScheduleCategory, schedules, isLoading, isDataLoaded]);
 
     // Clock and Bell Ringing Logic
     useEffect(() => {
