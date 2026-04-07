@@ -44,10 +44,12 @@ const App: React.FC = () => {
                     setIsConnected(true);
                     
                     const categories = Object.keys(data.schedules);
-                    if (data.activeScheduleCategory && categories.includes(data.activeScheduleCategory)) {
-                        setActiveScheduleCategory(data.activeScheduleCategory);
-                    } else if (categories.length > 0) {
-                        setActiveScheduleCategory(categories[0]);
+                    if (categories.length > 0) {
+                        if (data.activeScheduleCategory && categories.includes(data.activeScheduleCategory)) {
+                            setActiveScheduleCategory(data.activeScheduleCategory);
+                        } else {
+                            setActiveScheduleCategory(categories[0]);
+                        }
                     }
                 } else {
                     throw new Error(`Server merespon dengan status: ${response.status}`);

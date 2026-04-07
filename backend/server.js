@@ -110,22 +110,33 @@ const initDb = async () => {
 
     // Check if data exists, if not populate
     const settingCount = await Setting.count();
+    const bellCount = await Bell.count();
+    console.log(`Current counts - Settings: ${settingCount}, Bells: ${bellCount}`);
+
     if (settingCount === 0) {
       await Setting.create({ key: 'schoolName', value: 'MA NU 01 Banyuputih' });
       await Setting.create({ key: 'activeScheduleCategory', value: 'Jadwal Normal' });
+      console.log('Default settings created.');
+    }
 
+    if (bellCount === 0) {
+      console.log('Populating default bells...');
       for (const category in DEFAULT_SCHEDULES_DATA) {
         for (const day in DEFAULT_SCHEDULES_DATA[category]) {
           for (const bell of DEFAULT_SCHEDULES_DATA[category][day]) {
             await Bell.create({
-              ...bell,
+              bellId: bell.id,
+              name: bell.name,
+              time: bell.time,
+              sound: bell.sound,
+              soundName: bell.soundName,
               category,
               day,
             });
           }
         }
       }
-      console.log('Default data populated.');
+      console.log('Default bells populated.');
     }
   } catch (error) {
     console.error('Unable to connect to the database:', error);
@@ -156,7 +167,15 @@ app.get('/api/data', async (req, res) => {
       });
     });
 
-    res.json({ schoolName, activeScheduleCategory, schedules });
+    // If no schedules found in DB, use default
+    const finalSchedules = Object.keys(schedules).length > 0 ? schedules : DEFAULT_SCHEDULES_DATA;
+    const finalActiveCategory = activeScheduleCategory || Object.keys(finalSchedules)[0];
+
+    res.json({ 
+      schoolName, 
+      activeScheduleCategory: finalActiveCategory, 
+      schedules: finalSchedules 
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch data' });
   }
