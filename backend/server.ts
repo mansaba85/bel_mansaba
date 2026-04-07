@@ -34,8 +34,8 @@ const upload = multer({
 });
 
 app.use(cors());
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ limit: '5mb', extended: true }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -95,7 +95,7 @@ Bell.init(
     day: { type: DataTypes.STRING },
     name: { type: DataTypes.STRING },
     time: { type: DataTypes.STRING },
-    sound: { type: DataTypes.TEXT }, // Use TEXT to be safe
+    sound: { type: DataTypes.TEXT('long') }, // Use LONGTEXT for large audio files
     soundName: { type: DataTypes.STRING },
   },
   { sequelize, modelName: 'Bell' }
