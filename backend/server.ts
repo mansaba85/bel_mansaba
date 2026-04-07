@@ -11,7 +11,8 @@ const app = express();
 const PORT = process.env.PORT || 5002;
 
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Allow large base64 audio data
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
 // Database setup
 const sequelize = new Sequelize(
@@ -166,6 +167,7 @@ app.get('/api/data', async (req, res) => {
 
 app.post('/api/save', async (req, res) => {
   const { schoolName, activeScheduleCategory, schedules } = req.body;
+  console.log('Received save request for:', schoolName);
   try {
     if (schoolName !== undefined) {
       await Setting.upsert({ key: 'schoolName', value: schoolName });
@@ -183,6 +185,7 @@ app.post('/api/save', async (req, res) => {
 
       // Update bells
       await Bell.destroy({ where: {} });
+      let bellCount = 0;
       for (const category in schedules) {
         for (const day in schedules[category]) {
           for (const bell of schedules[category][day]) {
@@ -191,13 +194,15 @@ app.post('/api/save', async (req, res) => {
               category,
               day,
             });
+            bellCount++;
           }
         }
       }
+      console.log(`Saved ${bellCount} bells to database`);
     }
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('Failed to save data:', error);
     res.status(500).json({ error: 'Failed to save data' });
   }
 });

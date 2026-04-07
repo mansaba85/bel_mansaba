@@ -90,17 +90,26 @@ const App: React.FC = () => {
 
         const saveData = async () => {
             try {
-                await fetch(`${API_URL}/save`, {
+                console.log('Saving data to backend...', { schoolName, activeScheduleCategory });
+                const response = await fetch(`${API_URL}/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ schoolName, activeScheduleCategory, schedules }),
                 });
-                // Also save to localStorage as backup
-                window.localStorage.setItem('schoolName', JSON.stringify(schoolName));
-                window.localStorage.setItem('schedules', JSON.stringify(schedules));
-                window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
+                
+                if (!response.ok) {
+                    console.error('Failed to save to backend. Status:', response.status, response.statusText);
+                    const errorText = await response.text();
+                    console.error('Error details:', errorText);
+                } else {
+                    console.log('Data saved successfully to backend');
+                    // Also save to localStorage as backup
+                    window.localStorage.setItem('schoolName', JSON.stringify(schoolName));
+                    window.localStorage.setItem('schedules', JSON.stringify(schedules));
+                    window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
+                }
             } catch (error) {
-                console.error('Failed to save to backend:', error);
+                console.error('Network error while saving to backend:', error);
             }
         };
 
