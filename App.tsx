@@ -111,11 +111,18 @@ const App: React.FC = () => {
                 window.localStorage.setItem('schedules', JSON.stringify(schedules));
                 window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
             } else {
-                throw new Error('Gagal menyimpan ke server');
+                const errorData = await response.json();
+                throw new Error(errorData.details || 'Gagal menyimpan ke server');
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Manual save error:', error);
-            Swal.fire({ title: 'Gagal', text: 'Gagal menyimpan data ke server.', icon: 'error', confirmButtonColor: '#dc2626' });
+            const errorMessage = error.message || 'Gagal menyimpan data ke server.';
+            Swal.fire({ 
+                title: 'Gagal', 
+                text: errorMessage, 
+                icon: 'error', 
+                confirmButtonColor: '#dc2626' 
+            });
         } finally {
             setIsSaving(false);
         }

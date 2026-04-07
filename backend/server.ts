@@ -66,11 +66,13 @@ Setting.init(
 );
 
 class Category extends Model {
+  public db_id!: number;
   public name!: string;
 }
 Category.init(
   {
-    name: { type: DataTypes.STRING, primaryKey: true },
+    db_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    name: { type: DataTypes.STRING },
   },
   { sequelize, modelName: 'Category' }
 );
@@ -219,7 +221,7 @@ app.post('/api/save', async (req, res) => {
       // Update categories
       await Category.destroy({ where: {}, transaction });
       for (const categoryName in schedules) {
-        if (!categoryName || categoryName === 'undefined' || categoryName === 'null') continue;
+        if (!categoryName || categoryName === 'undefined' || categoryName === 'null' || categoryName === '') continue;
         await Category.create({ name: categoryName }, { transaction });
       }
 
@@ -227,14 +229,17 @@ app.post('/api/save', async (req, res) => {
       await Bell.destroy({ where: {}, transaction });
       let bellCount = 0;
       for (const category in schedules) {
+        if (!category || category === 'undefined' || category === 'null' || category === '') continue;
         for (const day in schedules[category]) {
+          if (!schedules[category][day]) continue;
           for (const bell of schedules[category][day]) {
+            if (!bell || !bell.id) continue;
             await Bell.create({
               id: bell.id,
-              name: bell.name,
-              time: bell.time,
-              sound: bell.sound,
-              soundName: bell.soundName,
+              name: bell.name || 'Bel Tanpa Nama',
+              time: bell.time || '00:00',
+              sound: bell.sound || '',
+              soundName: bell.soundName || 'Tidak ada suara',
               category,
               day,
             }, { transaction });
