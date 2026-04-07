@@ -70,7 +70,8 @@ Setting.init(
 class Bell extends Model {}
 Bell.init(
   {
-    id: { type: DataTypes.STRING, primaryKey: true },
+    id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    bellId: { type: DataTypes.STRING },
     category: { type: DataTypes.STRING },
     day: { type: DataTypes.STRING },
     name: { type: DataTypes.STRING },
@@ -147,7 +148,7 @@ app.get('/api/data', async (req, res) => {
       if (!schedules[bell.category]) schedules[bell.category] = {};
       if (!schedules[bell.category][bell.day]) schedules[bell.category][bell.day] = [];
       schedules[bell.category][bell.day].push({
-        id: bell.id,
+        id: bell.bellId, // Map bellId back to id for frontend
         name: bell.name,
         time: bell.time,
         sound: bell.sound,
@@ -176,7 +177,11 @@ app.post('/api/save', async (req, res) => {
         for (const day in schedules[category]) {
           for (const bell of schedules[category][day]) {
             await Bell.create({
-              ...bell,
+              bellId: bell.id,
+              name: bell.name,
+              time: bell.time,
+              sound: bell.sound,
+              soundName: bell.soundName,
               category,
               day,
             });
