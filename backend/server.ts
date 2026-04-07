@@ -6,7 +6,6 @@ import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
 import { fileURLToPath } from 'url';
-import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
@@ -46,16 +45,25 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database setup
-const sequelize = new Sequelize(
-  process.env.DB_NAME || 'school_bell',
-  process.env.DB_USER || 'root',
-  process.env.DB_PASSWORD || '',
-  {
-    host: process.env.DB_HOST || 'localhost',
-    dialect: 'mysql',
-    logging: false,
-  }
-);
+const dbDialect = (process.env.DB_DIALECT as any) || 'mysql';
+const isSqlite = dbDialect === 'sqlite';
+
+const sequelize = isSqlite 
+  ? new Sequelize({
+      dialect: 'sqlite',
+      storage: path.join(process.cwd(), 'database.sqlite'),
+      logging: false,
+    })
+  : new Sequelize(
+      process.env.DB_NAME || 'school_bell',
+      process.env.DB_USER || 'root',
+      process.env.DB_PASSWORD || '',
+      {
+        host: process.env.DB_HOST || 'localhost',
+        dialect: 'mysql',
+        logging: false,
+      }
+    );
 
 // Models
 class Setting extends Model {
@@ -291,6 +299,8 @@ async function setupFrontend(app: express.Application) {
   if (!isProd) {
     try {
       console.log('Attempting to initialize Vite middleware...');
+      // Dynamic import to avoid crash in production if vite is not installed
+      const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
@@ -300,7 +310,6 @@ async function setupFrontend(app: express.Application) {
       console.log('Vite middleware enabled successfully');
     } catch (err) {
       console.error('CRITICAL: Failed to initialize Vite middleware:', err);
-      // Fallback if Vite fails in dev
       app.get('/', (req, res) => {
         res.status(500).send('Vite development server failed to start. Check server logs.');
       });
