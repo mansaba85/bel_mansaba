@@ -284,38 +284,58 @@ app.post('/api/save', async (req, res) => {
 // --- SERVE FRONTEND ---
 async function setupFrontend(app: express.Application) {
   const isProd = process.env.NODE_ENV === 'production';
-  const rootDir = path.join(__dirname, '..');
+  const rootDir = process.cwd(); // Use process.cwd() for more reliable pathing
+  
+  console.log(`Frontend Setup: isProd=${isProd}, rootDir=${rootDir}`);
   
   if (!isProd) {
     try {
-      console.log('Initializing Vite middleware...');
+      console.log('Attempting to initialize Vite middleware...');
       const vite = await createViteServer({
         server: { middlewareMode: true },
         appType: 'spa',
         root: rootDir
       });
       app.use(vite.middlewares);
-      console.log('Vite middleware enabled');
+      console.log('Vite middleware enabled successfully');
     } catch (err) {
-      console.error('Failed to initialize Vite middleware:', err);
+      console.error('CRITICAL: Failed to initialize Vite middleware:', err);
+      // Fallback if Vite fails in dev
+      app.get('/', (req, res) => {
+        res.status(500).send('Vite development server failed to start. Check server logs.');
+      });
     }
   } else {
     const distPath = path.join(rootDir, 'dist');
-    console.log('Serving production build from:', distPath);
+    console.log('Production Mode: Looking for dist at', distPath);
+    
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('*', (req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
       });
+      console.log('Static production serving enabled');
     } else {
-      console.warn('Production dist folder not found! Frontend will not be served.');
+      console.error('CRITICAL: Production dist folder NOT FOUND at', distPath);
       app.get('*', (req, res) => {
         if (!req.path.startsWith('/api')) {
-          res.status(404).send('Frontend build not found. Please run npm run build.');
+          res.status(404).send(`
+            <h1>Frontend Build Not Found</h1>
+            <p>Please run <code>npm run build</code> on your server to generate the production files.</p>
+            <p>Current Directory: ${rootDir}</p>
+            <p>Expected Dist Path: ${distPath}</p>
+          `);
         }
       });
     }
   }
+  
+  // Final fallback to prevent "Cannot GET /"
+  app.use((req, res) => {
+    if (!req.path.startsWith('/api')) {
+      res.status(404).send('Resource not found. If this is the homepage, the frontend failed to load.');
+    }
+  });
 }
 
 console.log('Starting server initialization...');
