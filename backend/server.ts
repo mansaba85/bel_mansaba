@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { Sequelize, DataTypes, Model } from 'sequelize';
 
+import path from 'path';
+
 dotenv.config();
 
 const app = express();
@@ -168,6 +170,16 @@ app.post('/api/save', async (req, res) => {
     console.error(error);
     res.status(500).json({ error: 'Failed to save data' });
   }
+});
+
+// --- SERVE FRONTEND ---
+// Arahkan ke folder dist (hasil build frontend)
+const distPath = path.join(__dirname, '../dist');
+app.use(express.static(distPath));
+
+// Agar React Router (SPA) berjalan lancar, arahkan semua request non-API ke index.html
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'));
 });
 
 app.listen(PORT, () => {
