@@ -41,6 +41,11 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 
+// Health check route - VERY TOP
+app.get('/health', (req, res) => {
+  res.send('Server is UP and RUNNING');
+});
+
 // Serve static files from uploads directory
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
@@ -172,7 +177,7 @@ const initDb = async () => {
 initDb();
 
 // API Routes
-app.post('/api/upload-audio', upload.single('audio'), (req, res) => {
+app.post('/upload-audio', upload.single('audio'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: 'No file uploaded' });
   }
@@ -180,7 +185,7 @@ app.post('/api/upload-audio', upload.single('audio'), (req, res) => {
   res.json({ url: fileUrl, filename: req.file.originalname });
 });
 
-app.get('/api/data', async (req, res) => {
+app.get('/data', async (req, res) => {
   try {
     const settings = await Setting.findAll();
     const categories = await Category.findAll();
@@ -220,7 +225,7 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
-app.post('/api/save', async (req, res) => {
+app.post('/save', async (req, res) => {
   const { schoolName, activeScheduleCategory, schedules } = req.body;
   console.log('Received save request for:', schoolName);
   
@@ -297,15 +302,8 @@ async function setupFrontend(app: express.Application) {
   
   console.log(`Frontend Setup: isProd=${isProd}, rootDir=${rootDir}, distExists=${fs.existsSync(distPath)}`);
   
-  // 1. Try to serve Static Files first if they exist (Production mode or fallback)
-  if (fs.existsSync(distPath)) {
-    console.log('Found "dist" folder. Enabling static serving.');
-    app.use(express.static(distPath));
-    // We don't return here because we want to handle the SPA catch-all at the end
-  }
-
-  // 2. If not in production and dist doesn't exist, try Vite Middleware
-  if (!isProd && !fs.existsSync(distPath)) {
+  // 1. In Development: Prioritize Vite Middleware
+  if (!isProd) {
     try {
       console.log('Attempting to initialize Vite middleware (Development Mode)...');
       const { createServer: createViteServer } = await import('vite');
@@ -318,42 +316,67 @@ async function setupFrontend(app: express.Application) {
       console.log('Vite middleware enabled successfully');
       return; // Vite handles its own catch-all
     } catch (err) {
-      console.warn('Vite middleware failed to start. This is normal in production if "dist" exists.', err);
+      console.warn('Vite middleware failed to start. Falling back to static files if available.', err);
     }
   }
 
-  // 3. SPA Catch-all for Static Files
+  // 2. In Production or as Fallback: Serve Static Files from "dist"
   if (fs.existsSync(distPath)) {
+    console.log('Serving static files from "dist" folder.');
+    app.use(express.static(distPath));
+    
+    // SPA Catch-all for Static Files
     app.get('*', (req, res, next) => {
       // Skip API and Uploads
-      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+      const apiRoutes = ['/data', '/save', '/upload-audio', '/health'];
+      if (apiRoutes.includes(req.path) || req.path.startsWith('/uploads')) {
         return next();
       }
-      res.sendFile(path.join(distPath, 'index.html'));
+      const indexPath = path.join(distPath, 'index.html');
+      if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+      } else {
+        next();
+      }
     });
-  } else {
-    // 4. Ultimate Fallback if nothing works
-    app.get('*', (req, res) => {
-      if (req.path.startsWith('/api')) return;
-      
-      res.status(404).send(`
-        <div style="font-family: sans-serif; padding: 20px; line-height: 1.6;">
-          <h1 style="color: #e11d48;">Tampilan Tidak Ditemukan (Frontend Missing)</h1>
-          <p>Server berhasil berjalan, tetapi tidak menemukan file tampilan untuk ditampilkan.</p>
-          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px;">
-            <strong>Solusi untuk aaPanel:</strong><br>
-            1. Buka terminal di folder project.<br>
-            2. Jalankan perintah: <code>npm run build</code><br>
-            3. Tunggu hingga selesai, lalu refresh halaman ini.
-          </div>
-          <p style="font-size: 0.8em; color: #6b7280; margin-top: 20px;">
-            Mode: ${process.env.NODE_ENV || 'development'}<br>
-            Lokasi: ${rootDir}
-          </p>
-        </div>
-      `);
-    });
+    return;
   }
+
+  // 3. Ultimate Fallback if nothing works
+  app.get('*', (req, res) => {
+    const apiRoutes = ['/data', '/save', '/upload-audio', '/health'];
+    if (apiRoutes.includes(req.path)) return;
+    
+    const mode = process.env.NODE_ENV || 'development';
+    res.status(404).send(`
+      <div style="font-family: sans-serif; padding: 40px; line-height: 1.6; max-width: 800px; margin: 0 auto;">
+        <h1 style="color: #e11d48; border-bottom: 2px solid #e11d48; padding-bottom: 10px;">Frontend Tidak Dapat Dimuat</h1>
+        <p style="font-size: 1.1em;">Server backend berjalan di port <strong>${process.env.PORT || 3000}</strong>, tetapi tampilan frontend gagal dimuat.</p>
+        
+        <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; border-left: 4px solid #3b82f6; margin: 20px 0;">
+          <h3 style="margin-top: 0;">Penyebab Kemungkinan:</h3>
+          <ul style="margin-bottom: 0;">
+            ${isProd ? '<li><strong>Folder "dist" tidak ditemukan:</strong> Anda berada di mode produksi, tetapi belum menjalankan <code>npm run build</code>.</li>' : '<li><strong>Vite gagal dijalankan:</strong> Terjadi kesalahan saat memulai server pengembangan Vite.</li>'}
+            <li><strong>Path Salah:</strong> Server mencari di <code>${rootDir}</code> tetapi file tidak ada di sana.</li>
+          </ul>
+        </div>
+
+        <div style="background: #fff7ed; padding: 20px; border-radius: 8px; border-left: 4px solid #f97316;">
+          <h3 style="margin-top: 0;">Cara Memperbaiki (aaPanel):</h3>
+          <ol>
+            <li>Buka terminal di folder project Anda.</li>
+            <li>Jalankan perintah: <strong><code>npm run build</code></strong></li>
+            <li>Pastikan folder <code>dist</code> muncul di folder project.</li>
+            <li>Refresh halaman ini.</li>
+          </ol>
+        </div>
+        
+        <p style="font-size: 0.8em; color: #6b7280; margin-top: 30px; text-align: center; border-top: 1px solid #e5e7eb; padding-top: 20px;">
+          Mode: <strong>${mode}</strong> | Port: <strong>${process.env.PORT || 3000}</strong> | Root: <code>${rootDir}</code>
+        </p>
+      </div>
+    `);
+  });
 }
 
 console.log('Starting server initialization...');
