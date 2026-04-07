@@ -50,25 +50,32 @@ app.get('/health', (req, res) => {
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database setup
-const dbDialect = (process.env.DB_DIALECT as any) || 'mysql';
+let dbDialect = (process.env.DB_DIALECT as any) || 'sqlite'; // Default to sqlite for easier setup
 const isSqlite = dbDialect === 'sqlite';
 
-const sequelize = isSqlite 
-  ? new Sequelize({
-      dialect: 'sqlite',
-      storage: path.join(process.cwd(), 'database.sqlite'),
+let sequelize: Sequelize;
+
+if (isSqlite) {
+  sequelize = new Sequelize({
+    dialect: 'sqlite',
+    storage: path.join(process.cwd(), 'database.sqlite'),
+    logging: false,
+  });
+} else {
+  sequelize = new Sequelize(
+    process.env.DB_NAME || 'school_bell',
+    process.env.DB_USER || 'root',
+    process.env.DB_PASSWORD || '',
+    {
+      host: process.env.DB_HOST || 'localhost',
+      dialect: 'mysql',
       logging: false,
-    })
-  : new Sequelize(
-      process.env.DB_NAME || 'school_bell',
-      process.env.DB_USER || 'root',
-      process.env.DB_PASSWORD || '',
-      {
-        host: process.env.DB_HOST || 'localhost',
-        dialect: 'mysql',
-        logging: false,
+      retry: {
+        max: 3
       }
-    );
+    }
+  );
+}
 
 // Models
 class Setting extends Model {
@@ -145,10 +152,58 @@ const initDb = async () => {
     console.log('Database connected.');
     
     // Use alter: true to keep data while updating schema
-    // We used force: true once to fix the primary key issue
     await sequelize.sync({ alter: true });
     console.log('Database synchronized.');
+  } catch (error) {
+    console.error('Initial database connection failed:', error);
+    
+    // Fallback to SQLite if MySQL fails and we are not already using SQLite
+    if (dbDialect !== 'sqlite') {
+      console.log('Falling back to SQLite...');
+      dbDialect = 'sqlite';
+      sequelize = new Sequelize({
+        dialect: 'sqlite',
+        storage: path.join(process.cwd(), 'database.sqlite'),
+        logging: false,
+      });
+      
+      // Re-initialize models with the new sequelize instance
+      Setting.init(
+        {
+          key: { type: DataTypes.STRING, primaryKey: true },
+          value: { type: DataTypes.TEXT },
+        },
+        { sequelize, modelName: 'Setting' }
+      );
+      Category.init(
+        {
+          db_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+          name: { type: DataTypes.STRING },
+        },
+        { sequelize, modelName: 'Category' }
+      );
+      Bell.init(
+        {
+          db_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+          id: { type: DataTypes.STRING },
+          category: { type: DataTypes.STRING },
+          day: { type: DataTypes.STRING },
+          name: { type: DataTypes.STRING },
+          time: { type: DataTypes.STRING },
+          sound: { type: DataTypes.TEXT('long') },
+          soundName: { type: DataTypes.STRING },
+        },
+        { sequelize, modelName: 'Bell' }
+      );
+      
+      await sequelize.sync({ alter: true });
+      console.log('SQLite fallback synchronized.');
+    } else {
+      throw error;
+    }
+  }
 
+  try {
     // Check if data exists, if not populate
     const categoryCount = await Category.count();
     if (categoryCount === 0) {
@@ -170,7 +225,7 @@ const initDb = async () => {
       console.log('Default data populated.');
     }
   } catch (error) {
-    console.error('Unable to connect to the database:', error);
+    console.error('Error populating default data:', error);
   }
 };
 
