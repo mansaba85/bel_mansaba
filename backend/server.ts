@@ -125,7 +125,11 @@ const initDb = async () => {
   try {
     await sequelize.authenticate();
     console.log('Database connected.');
-    await sequelize.sync({ alter: true });
+    
+    // Force sync once to fix the 'db_id' column issue
+    // This will recreate the tables with the correct schema
+    await sequelize.sync({ force: true });
+    console.log('Database tables recreated.');
 
     // Check if data exists, if not populate
     const categoryCount = await Category.count();
