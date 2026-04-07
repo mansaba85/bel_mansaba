@@ -19,6 +19,7 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 
 // API Base URL - Pointing to the live backend for development
 const API_URL = import.meta.env.VITE_API_URL || 'https://bel.manubanyuputih.id/api';
+console.log('Connecting to API:', API_URL);
 
 const App: React.FC = () => {
     const [schoolName, setSchoolName] = useState<string>('MA NU 01 Banyuputih');
@@ -35,15 +36,31 @@ const App: React.FC = () => {
                 const response = await fetch(`${API_URL}/data`);
                 if (response.ok) {
                     const data = await response.json();
-                    setSchoolName(data.schoolName);
-                    setSchedules(data.schedules);
+                    console.log('Data received from backend:', data);
                     
-                    const categories = Object.keys(data.schedules);
+                    // Clean schedules from "undefined" keys
+                    const cleanedSchedules: SchedulesData = {};
+                    if (data.schedules) {
+                        Object.keys(data.schedules).forEach(cat => {
+                            if (cat !== 'undefined' && cat !== 'null' && cat !== '') {
+                                cleanedSchedules[cat] = data.schedules[cat];
+                            }
+                        });
+                    }
+
+                    setSchoolName(data.schoolName || 'MA NU 01 Banyuputih');
+                    setSchedules(Object.keys(cleanedSchedules).length > 0 ? cleanedSchedules : DEFAULT_SCHEDULES_DATA);
+                    
+                    const categories = Object.keys(cleanedSchedules);
                     if (data.activeScheduleCategory && categories.includes(data.activeScheduleCategory)) {
                         setActiveScheduleCategory(data.activeScheduleCategory);
                     } else if (categories.length > 0) {
                         setActiveScheduleCategory(categories[0]);
+                    } else {
+                        setActiveScheduleCategory(Object.keys(DEFAULT_SCHEDULES_DATA)[0]);
                     }
+                } else {
+                    console.error('Backend returned an error:', response.status, response.statusText);
                 }
             } catch (error) {
                 console.error('Failed to fetch from backend, using local defaults:', error);

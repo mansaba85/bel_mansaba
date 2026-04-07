@@ -136,6 +136,7 @@ app.get('/api/data', async (req, res) => {
     const schedules: any = {};
     // Initialize all categories with empty days
     categories.forEach(cat => {
+      if (!cat.name || cat.name === 'undefined' || cat.name === 'null') return;
       schedules[cat.name] = {};
       const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
       DAYS.forEach(day => {
@@ -176,6 +177,7 @@ app.post('/api/save', async (req, res) => {
       // Update categories
       await Category.destroy({ where: {} });
       for (const categoryName in schedules) {
+        if (!categoryName || categoryName === 'undefined' || categoryName === 'null') continue;
         await Category.create({ name: categoryName });
       }
 
