@@ -2,17 +2,43 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Sequelize, DataTypes, Model } from 'sequelize';
-
 import path from 'path';
+import fs from 'fs';
+import multer from 'multer';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5002;
 
+// Ensure uploads directory exists
+const uploadsDir = path.join(__dirname, 'uploads', 'audio');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+// Configure multer for audio uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, 'audio-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit per file
+});
+
 app.use(cors());
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database setup
 const sequelize = new Sequelize(
@@ -65,7 +91,7 @@ Bell.init(
     day: { type: DataTypes.STRING },
     name: { type: DataTypes.STRING },
     time: { type: DataTypes.STRING },
-    sound: { type: DataTypes.TEXT('long') },
+    sound: { type: DataTypes.STRING }, // Now stores filename/URL instead of base64
     soundName: { type: DataTypes.STRING },
   },
   { sequelize, modelName: 'Bell' }
@@ -125,6 +151,14 @@ const initDb = async () => {
 initDb();
 
 // API Routes
+app.post('/api/upload-audio', upload.single('audio'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const fileUrl = `/uploads/audio/${req.file.filename}`;
+  res.json({ url: fileUrl, filename: req.file.originalname });
+});
+
 app.get('/api/data', async (req, res) => {
   try {
     const settings = await Setting.findAll();
@@ -201,9 +235,13 @@ app.post('/api/save', async (req, res) => {
       console.log(`Saved ${bellCount} bells to database`);
     }
     res.json({ success: true });
-  } catch (error) {
-    console.error('Failed to save data:', error);
-    res.status(500).json({ error: 'Failed to save data' });
+  } catch (error: any) {
+    console.error('Failed to save data. Full error:', error);
+    res.status(500).json({ 
+      error: 'Failed to save data', 
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+    });
   }
 });
 

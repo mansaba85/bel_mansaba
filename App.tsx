@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Bell, SchedulesData, Schedule } from './types';
-import { DAYS_OF_WEEK, DEFAULT_SCHEDULES_DATA } from './constants';
+import { DAYS_OF_WEEK, DEFAULT_SCHEDULES_DATA, API_URL, BASE_URL, getAudioUrl } from './constants';
 import { Header } from './components/Header';
 import { ScheduleEditor } from './components/ScheduleEditor';
 
@@ -17,8 +17,6 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
     }
 };
 
-// API Base URL - Pointing to the live backend for development
-const API_URL = import.meta.env.VITE_API_URL || 'https://bel.manubanyuputih.id/api';
 console.log('Connecting to API:', API_URL);
 
 const App: React.FC = () => {
@@ -99,8 +97,11 @@ const App: React.FC = () => {
                 
                 if (!response.ok) {
                     console.error('Failed to save to backend. Status:', response.status, response.statusText);
-                    const errorText = await response.text();
-                    console.error('Error details:', errorText);
+                    const errorData = await response.json();
+                    console.error('Error details:', errorData);
+                    if (errorData.details) {
+                        console.error('Server Error Message:', errorData.details);
+                    }
                 } else {
                     console.log('Data saved successfully to backend');
                     // Also save to localStorage as backup
@@ -142,9 +143,10 @@ const App: React.FC = () => {
             setLastPlayedTime(currentTimeString); // Prevent re-triggering
 
             // Play the sound fully, detached from the notification
-            if (bellToRing.sound) {
+            const audioUrl = getAudioUrl(bellToRing.sound);
+            if (audioUrl) {
                 console.log(`Ringing bell: ${bellToRing.name} at ${bellToRing.time}`);
-                const audio = new Audio(bellToRing.sound);
+                const audio = new Audio(audioUrl);
                 audio.play().catch(e => console.error("Error playing sound:", e));
             }
 
