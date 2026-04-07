@@ -1,56 +1,50 @@
-# Backend School Bell Scheduler
+# Panduan Deployment di aaPanel (bel.manubanyuputih.id)
 
-Backend ini menggunakan Node.js (Express) dan MySQL (Sequelize) untuk menyimpan data jadwal bel sekolah.
+Untuk menjalankan project ini dengan domain `bel.manubanyuputih.id`, ikuti langkah-langkah berikut:
 
-## Fitur
-- Otomatis membuat tabel MySQL saat dijalankan.
-- Otomatis mengisi data awal jika database kosong.
-- API untuk mengambil dan menyimpan data jadwal.
+## 1. Build Frontend (React/Vite)
+Di terminal server (folder `/www/wwwroot/app/bel/`), jalankan perintah:
+```bash
+npm install
+npm run build
+```
+Ini akan menghasilkan folder `dist` di dalam `/www/wwwroot/app/bel/`.
 
-## Persiapan di aaPanel
+## 2. Setup Backend (Node.js)
+- Pastikan folder `backend` sudah ada di `/www/wwwroot/app/bel/backend`.
+- Jalankan `npm install` di dalam folder `backend`.
+- Buat file `.env` di dalam folder `backend` dengan konfigurasi MySQL Anda.
+- Di aaPanel, buka menu **Node.js Project** -> **Add Node Project**:
+    - **Path:** `/www/wwwroot/app/bel/backend`
+    - **Run Command:** `npm run start`
+    - **Port:** `5002`
+    - **Project Name:** `school-bell-backend`
 
-1.  **Buat Database MySQL:**
-    - Buka menu **Databases** di aaPanel.
-    - Klik **Add Database**.
-    - Nama Database: `school_bell` (atau sesuaikan).
-    - Username & Password: Catat untuk konfigurasi `.env`.
+## 3. Konfigurasi Website di aaPanel
+Buka menu **Website** -> Klik pada domain `bel.manubanyuputih.id`:
 
-2.  **Upload File Backend:**
-    - Upload seluruh isi folder `backend` ke server aaPanel (misal ke `/www/wwwroot/school-bell-backend`).
+### A. Ubah Site Directory
+- Klik tab **Site Directory**.
+- Ubah **Site Directory** menjadi: `/www/wwwroot/app/bel/dist`
+- Klik **Save**.
+- *Sekarang, ketika Anda mengakses domain, tampilan frontend akan muncul.*
 
-3.  **Konfigurasi Environment (`.env`):**
-    - Buat file `.env` di dalam folder backend di server.
-    - Isi dengan konfigurasi berikut:
-      ```env
-      PORT=5002
-      DB_HOST=localhost
-      DB_USER=nama_user_mysql
-      DB_PASSWORD=password_mysql
-      DB_NAME=school_bell
-      ```
+### B. Tambahkan Reverse Proxy (Untuk API)
+Agar frontend bisa berkomunikasi dengan backend, kita perlu mem-proxy request `/api` ke port `5002`.
+- Klik tab **Reverse Proxy** -> **Add Reverse Proxy**.
+- **Proxy Name:** `api-proxy`
+- **Target URL:** `http://127.0.0.1:5002`
+- **Sent Domain:** `$host`
+- Klik **Confirm**.
 
-4.  **Install Node.js Version Manager:**
-    - Jika belum ada, install **Node.js Version Manager** dari App Store aaPanel.
-    - Install Node.js versi terbaru (v18 ke atas disarankan).
+## 4. Konfigurasi Nginx (Opsional tapi Disarankan)
+Jika Anda menggunakan React Router (SPA), tambahkan baris berikut di tab **Config** website Anda (di dalam blok `server {}`):
+```nginx
+location / {
+    try_files $uri $uri/ /index.html;
+}
+```
 
-5.  **Setup Node.js Project:**
-    - Buka menu **Website** -> **Node.js Project**.
-    - Klik **Add Node Project**.
-    - **Path:** Pilih folder tempat Anda mengupload backend.
-    - **Project Name:** `school-bell-backend`.
-    - **Run Command:** `npm run start`.
-    - **Port:** `5002`.
-    - **User:** `www`.
-    - Klik **Confirm**.
-
-6.  **Buka Port di Firewall:**
-    - Buka menu **Security** di aaPanel.
-    - Tambahkan port `5002` (TCP) agar bisa diakses dari luar (atau gunakan Reverse Proxy di aaPanel jika ingin menggunakan domain).
-
-## API Endpoints
-- `GET /api/data`: Mengambil semua data (schoolName, activeScheduleCategory, schedules).
-- `POST /api/save`: Menyimpan data. Body: `{ schoolName, activeScheduleCategory, schedules }`.
-
-## Catatan
-- Pastikan Anda sudah menjalankan `npm install` di dalam folder backend sebelum menjalankan project.
-- Jika menggunakan `tsx`, pastikan sudah terinstall (sudah ada di `devDependencies`).
+## Ringkasan Path:
+- **Frontend (Static):** `/www/wwwroot/app/bel/dist` (Arahkan Website ke sini)
+- **Backend (Node.js):** `/www/wwwroot/app/bel/backend` (Jalankan sebagai Node Project di port 5002)

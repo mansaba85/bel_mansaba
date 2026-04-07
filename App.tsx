@@ -17,8 +17,8 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
     }
 };
 
-// API Base URL - Change this to your aaPanel backend URL
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+// API Base URL - In production with reverse proxy, use relative path
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const App: React.FC = () => {
     const [schoolName, setSchoolName] = useState<string>('MA NU 01 Banyuputih');
