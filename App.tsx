@@ -24,6 +24,7 @@ const App: React.FC = () => {
     const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
     const [isConnected, setIsConnected] = useState(false);
+    const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);
 
@@ -204,6 +205,16 @@ const App: React.FC = () => {
         }));
     };
 
+    const handleDeleteMultipleBells = (category: string, day: string, bellIds: string[]) => {
+        setSchedules(prev => ({
+            ...prev,
+            [category]: {
+                ...prev[category],
+                [day]: (prev[category]?.[day] || []).filter(b => !bellIds.includes(b.id)),
+            },
+        }));
+    };
+
     const handleCopySchedule = (fromDay: string, toDays: string[], category: string) => {
         const sourceSchedule = schedules[category]?.[fromDay] || [];
         setSchedules(prev => {
@@ -268,6 +279,37 @@ const App: React.FC = () => {
         });
     };
 
+    const handleBackup = () => {
+        const data = { schoolName, schedules, activeScheduleCategory };
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `backup-bel-${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = JSON.parse(event.target?.result as string);
+                if (data.schoolName) setSchoolName(data.schoolName);
+                if (data.schedules) setSchedules(data.schedules);
+                if (data.activeScheduleCategory) setActiveScheduleCategory(data.activeScheduleCategory);
+                
+                Swal.fire({ title: 'Sukses', text: 'Data berhasil dipulihkan.', icon: 'success' });
+            } catch (error) {
+                Swal.fire({ title: 'Gagal', text: 'Format file tidak valid.', icon: 'error' });
+            }
+        };
+        reader.readAsText(file);
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-100">
@@ -290,21 +332,123 @@ const App: React.FC = () => {
                 onAdminLogout={handleAdminLogout}
                 isConnected={isConnected}
                 onSync={handleSync}
+                view={view}
+                onViewChange={setView}
             />
             <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-                <ScheduleEditor
-                    schedules={schedules}
-                    activeScheduleCategory={activeScheduleCategory}
-                    setActiveScheduleCategory={setActiveScheduleCategory}
-                    scheduleCategories={scheduleCategories}
-                    onUpdateBell={handleUpdateBell}
-                    onAddBell={handleAddBell}
-                    onDeleteBell={handleDeleteBell}
-                    onCopySchedule={handleCopySchedule}
-                    onAddCategory={handleAddCategory}
-                    currentTime={currentTime}
-                    isAdmin={isAdmin}
-                />
+                {view === 'dashboard' ? (
+                    <ScheduleEditor
+                        schedules={schedules}
+                        activeScheduleCategory={activeScheduleCategory}
+                        setActiveScheduleCategory={setActiveScheduleCategory}
+                        scheduleCategories={scheduleCategories}
+                        onUpdateBell={handleUpdateBell}
+                        onAddBell={handleAddBell}
+                        onDeleteBell={handleDeleteBell}
+                        onDeleteMultipleBells={handleDeleteMultipleBells}
+                        onCopySchedule={handleCopySchedule}
+                        onAddCategory={handleAddCategory}
+                        currentTime={currentTime}
+                        isAdmin={isAdmin}
+                    />
+                ) : (
+                    <div className="bg-white rounded-2xl shadow-xl p-8 border border-slate-200 animate-fade-in">
+                        <div className="flex items-center gap-3 mb-8">
+                            <div className="w-12 h-12 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center">
+                                <i className="fa-solid fa-gears text-xl"></i>
+                            </div>
+                            <div>
+                                <h1 className="text-2xl font-bold text-slate-800">Pengaturan Sistem</h1>
+                                <p className="text-slate-500 text-sm">Kelola identitas sekolah dan cadangan data.</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                            <div className="space-y-6">
+                                <section>
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Identitas Sekolah</h3>
+                                    <div className="space-y-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-slate-700 mb-1">Nama Sekolah</label>
+                                            <input 
+                                                type="text" 
+                                                value={schoolName} 
+                                                onChange={(e) => setSchoolName(e.target.value)}
+                                                className="form-input"
+                                                placeholder="Masukkan nama sekolah..."
+                                            />
+                                        </div>
+                                    </div>
+                                </section>
+
+                                <section>
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Koneksi Database</h3>
+                                    <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                                            <span className="text-sm font-semibold text-slate-700">
+                                                {isConnected ? 'Terhubung ke MySQL' : 'Terputus dari MySQL'}
+                                            </span>
+                                        </div>
+                                        <button onClick={handleSync} className="text-xs font-bold text-red-600 hover:text-red-700 uppercase tracking-wider">
+                                            Sinkronkan Ulang
+                                        </button>
+                                    </div>
+                                </section>
+                            </div>
+
+                            <div className="space-y-6">
+                                <section>
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Backup & Restore</h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <button 
+                                            onClick={handleBackup}
+                                            className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center group-hover:bg-blue-100 transition-colors">
+                                                    <i className="fa-solid fa-download"></i>
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="text-sm font-bold text-slate-800">Backup Data</div>
+                                                    <div className="text-xs text-slate-500">Unduh semua jadwal ke file JSON</div>
+                                                </div>
+                                            </div>
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                        </button>
+
+                                        <label className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-green-50 text-green-600 rounded-lg flex items-center justify-center group-hover:bg-green-100 transition-colors">
+                                                    <i className="fa-solid fa-upload"></i>
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="text-sm font-bold text-slate-800">Restore Data</div>
+                                                    <div className="text-xs text-slate-500">Pulihkan data dari file backup</div>
+                                                </div>
+                                            </div>
+                                            <input type="file" accept=".json" onChange={handleRestore} className="sr-only" />
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                        </label>
+                                    </div>
+                                </section>
+
+                                <section className="p-6 bg-red-50 rounded-2xl border border-red-100">
+                                    <h3 className="text-sm font-bold text-red-800 mb-2">Pusat Bantuan</h3>
+                                    <p className="text-xs text-red-600 leading-relaxed mb-4">
+                                        Jika Anda mengalami kendala sinkronisasi atau data tidak muncul, pastikan backend Anda di aaPanel sudah berjalan dan CORS sudah diatur.
+                                    </p>
+                                    <button 
+                                        onClick={() => setView('dashboard')}
+                                        className="w-full py-2 bg-white text-red-600 text-xs font-bold rounded-lg border border-red-200 hover:bg-red-100 transition-colors"
+                                    >
+                                        Kembali ke Dashboard
+                                    </button>
+                                </section>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </main>
         </div>
     );

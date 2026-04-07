@@ -11,6 +11,8 @@ interface HeaderProps {
     onAdminLogout: () => void;
     isConnected: boolean;
     onSync: () => void;
+    view: 'dashboard' | 'settings';
+    onViewChange: (view: 'dashboard' | 'settings') => void;
 }
 
 const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
@@ -44,7 +46,7 @@ const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
     );
 };
 
-export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, currentTime, isAdmin, onAdminLogin, onAdminLogout, isConnected, onSync }) => {
+export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, currentTime, isAdmin, onAdminLogin, onAdminLogout, isConnected, onSync, view, onViewChange }) => {
     
     const showLoginModal = async () => {
         await Swal.fire({
@@ -98,15 +100,25 @@ export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, 
                 </div>
                 <div className="flex items-center space-x-4 sm:space-x-6">
                     {isAdmin && (
-                        <button
-                            onClick={onSync}
-                            className="flex items-center space-x-2 px-3 py-2 bg-amber-50 text-amber-600 font-semibold rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors text-sm"
-                            aria-label="Sync Data"
-                            title="Bersihkan Cache & Sinkronisasi"
-                        >
-                            <i className="fa-solid fa-sync h-5 w-5"></i>
-                            <span className="hidden lg:inline">Sync Data</span>
-                        </button>
+                        <div className="flex items-center space-x-2">
+                            <button
+                                onClick={() => onViewChange(view === 'dashboard' ? 'settings' : 'dashboard')}
+                                className={`flex items-center space-x-2 px-3 py-2 font-semibold rounded-lg transition-colors text-sm ${view === 'settings' ? 'bg-red-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}
+                                aria-label={view === 'settings' ? 'Dashboard' : 'Pengaturan'}
+                            >
+                                <i className={`fa-solid ${view === 'settings' ? 'fa-chart-line' : 'fa-gears'} h-5 w-5`}></i>
+                                <span className="hidden lg:inline">{view === 'settings' ? 'Dashboard' : 'Pengaturan'}</span>
+                            </button>
+                            <button
+                                onClick={onSync}
+                                className="flex items-center space-x-2 px-3 py-2 bg-amber-50 text-amber-600 font-semibold rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors text-sm"
+                                aria-label="Sync Data"
+                                title="Bersihkan Cache & Sinkronisasi"
+                            >
+                                <i className="fa-solid fa-sync h-5 w-5"></i>
+                                <span className="hidden lg:inline">Sync Data</span>
+                            </button>
+                        </div>
                     )}
                     {isAdmin ? (
                         <button

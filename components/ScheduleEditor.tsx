@@ -12,6 +12,7 @@ interface ScheduleEditorProps {
     onUpdateBell: (category: string, day: string, bell: Bell) => void;
     onAddBell: (category: string, day: string, bell: Omit<Bell, 'id'>) => void;
     onDeleteBell: (category: string, day: string, bellId: string) => void;
+    onDeleteMultipleBells: (category: string, day: string, bellIds: string[]) => void;
     onCopySchedule: (fromDay: string, toDays: string[], category: string) => void;
     onAddCategory: (newCategoryName: string) => void;
     currentTime: Date;
@@ -169,7 +170,9 @@ const BellRow: React.FC<{
     onEdit: () => void;
     onDelete: (bellId: string) => void;
     isAdmin: boolean;
-}> = ({ bell, onEdit, onDelete, isAdmin }) => {
+    isSelected: boolean;
+    onSelect: (id: string) => void;
+}> = ({ bell, onEdit, onDelete, isAdmin, isSelected, onSelect }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -224,7 +227,17 @@ const BellRow: React.FC<{
     };
 
     return (
-        <div className={`grid ${isAdmin ? 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr_1fr]' : 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr]'} gap-4 items-center px-3 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80 rounded-lg transition-colors`}>
+        <div className={`grid ${isAdmin ? 'grid-cols-[0.3fr_2fr_0.8fr_1.5fr_0.5fr_1fr]' : 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr]'} gap-4 items-center px-3 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80 rounded-lg transition-colors ${isSelected ? 'bg-red-50/50' : ''}`}>
+            {isAdmin && (
+                <div className="flex justify-center">
+                    <input 
+                        type="checkbox" 
+                        checked={isSelected} 
+                        onChange={() => onSelect(bell.id)}
+                        className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
+                    />
+                </div>
+            )}
             <span className="font-semibold text-slate-800 truncate">{bell.name}</span>
             <span className="font-mono text-slate-600 text-sm bg-slate-100 px-2 py-0.5 rounded flex justify-center">{bell.time}</span>
             <span className="text-slate-500 text-xs truncate italic">{bell.soundName || 'Hening'}</span>
@@ -258,26 +271,46 @@ const BellTable: React.FC<{
     onEditBell: (bell: Bell) => void;
     onDelete: (bellId: string) => void;
     isAdmin: boolean;
-}> = ({ bells, onEditBell, onDelete, isAdmin }) => (
-    <div className="space-y-1">
-        <div className={`grid ${isAdmin ? 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr_1fr]' : 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr]'} gap-4 px-3 py-2 bg-slate-100/50 rounded-t-lg border-b border-slate-200`}>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nama Bel</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Waktu</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Suara</span>
-            <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Cek</span>
-            {isAdmin && <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</span>}
+    selectedIds: string[];
+    onSelectBell: (id: string) => void;
+    onSelectAll: (ids: string[]) => void;
+}> = ({ bells, onEditBell, onDelete, isAdmin, selectedIds, onSelectBell, onSelectAll }) => {
+    const allIds = bells.map(b => b.id);
+    const isAllSelected = allIds.length > 0 && allIds.every(id => selectedIds.includes(id));
+
+    return (
+        <div className="space-y-1">
+            <div className={`grid ${isAdmin ? 'grid-cols-[0.3fr_2fr_0.8fr_1.5fr_0.5fr_1fr]' : 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr]'} gap-4 px-3 py-2 bg-slate-100/50 rounded-t-lg border-b border-slate-200`}>
+                {isAdmin && (
+                    <div className="flex justify-center">
+                        <input 
+                            type="checkbox" 
+                            checked={isAllSelected}
+                            onChange={() => onSelectAll(allIds)}
+                            className="w-4 h-4 text-red-600 rounded border-slate-300 focus:ring-red-500 cursor-pointer"
+                        />
+                    </div>
+                )}
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Nama Bel</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Waktu</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Suara</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Cek</span>
+                {isAdmin && <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Aksi</span>}
+            </div>
+            {bells.map(bell => (
+                <BellRow
+                    key={bell.id}
+                    bell={bell}
+                    onEdit={() => onEditBell(bell)}
+                    onDelete={onDelete}
+                    isAdmin={isAdmin}
+                    isSelected={selectedIds.includes(bell.id)}
+                    onSelect={onSelectBell}
+                />
+            ))}
         </div>
-        {bells.map(bell => (
-            <BellRow
-                key={bell.id}
-                bell={bell}
-                onEdit={() => onEditBell(bell)}
-                onDelete={onDelete}
-                isAdmin={isAdmin}
-            />
-        ))}
-    </div>
-);
+    );
+};
 
 export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     schedules,
@@ -287,6 +320,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     onUpdateBell,
     onAddBell,
     onDeleteBell,
+    onDeleteMultipleBells,
     onCopySchedule,
     onAddCategory,
     currentTime,
@@ -295,6 +329,39 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     const todayIndex = (currentTime.getDay() + 6) % 7;
     const [selectedDay, setSelectedDay] = useState(DAYS_OF_WEEK[todayIndex]);
     const [bellToEdit, setBellToEdit] = useState<Bell | null>(null);
+    const [selectedBellIds, setSelectedBellIds] = useState<string[]>([]);
+    
+    const handleSelectBell = (id: string) => {
+        setSelectedBellIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    };
+
+    const handleSelectAll = (ids: string[]) => {
+        const allSelected = ids.every(id => selectedBellIds.includes(id));
+        if (allSelected) {
+            setSelectedBellIds(prev => prev.filter(id => !ids.includes(id)));
+        } else {
+            setSelectedBellIds(prev => Array.from(new Set([...prev, ...ids])));
+        }
+    };
+
+    const handleBulkDelete = () => {
+        if (selectedBellIds.length === 0) return;
+        
+        Swal.fire({
+            title: 'Hapus Terpilih?',
+            text: `Anda akan menghapus ${selectedBellIds.length} jadwal sekaligus.`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#dc2626',
+            confirmButtonText: 'Ya, Hapus Semua!',
+            cancelButtonText: 'Batal'
+        }).then((result: { isConfirmed: boolean }) => {
+            if (result.isConfirmed) {
+                onDeleteMultipleBells(activeScheduleCategory, selectedDay, selectedBellIds);
+                setSelectedBellIds([]);
+            }
+        });
+    };
     
     // Logic for "Apply" button
     const [pendingCategory, setPendingCategory] = useState(activeScheduleCategory);
@@ -543,7 +610,18 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
 
                 <div className="bg-slate-50/30 rounded-xl border border-slate-100 p-2 sm:p-4">
                     {isAdmin && activeSchedule.length > 0 && (
-                        <div className="flex justify-end mb-2">
+                        <div className="flex justify-between items-center mb-2">
+                            <div className="flex gap-2">
+                                {selectedBellIds.length > 0 && (
+                                    <button 
+                                        onClick={handleBulkDelete}
+                                        className="flex items-center gap-2 px-3 py-1.5 bg-red-50 text-red-600 font-bold rounded-lg hover:bg-red-100 transition-colors text-xs border border-red-100"
+                                    >
+                                        <i className="fa-solid fa-trash-can"></i>
+                                        Hapus {selectedBellIds.length} Terpilih
+                                    </button>
+                                )}
+                            </div>
                             <button onClick={showCopyModal} className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 text-slate-600 font-semibold rounded-lg hover:bg-slate-50 transition-colors text-xs shadow-sm">
                                 <i className="fa-solid fa-copy text-red-500"></i>
                                 Salin Jadwal {selectedDay}
@@ -554,10 +632,28 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                     {activeSchedule.length > 0 ? (
                         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 lg:gap-8">
                             <div>
-                                <BellTable bells={leftColumnBells} onEditBell={setBellToEdit} onDelete={(id) => onDeleteBell(activeScheduleCategory, selectedDay, id)} isAdmin={isAdmin}/>
+                                <BellTable 
+                                    bells={leftColumnBells} 
+                                    onEditBell={setBellToEdit} 
+                                    onDelete={(id) => onDeleteBell(activeScheduleCategory, selectedDay, id)} 
+                                    isAdmin={isAdmin}
+                                    selectedIds={selectedBellIds}
+                                    onSelectBell={handleSelectBell}
+                                    onSelectAll={handleSelectAll}
+                                />
                             </div>
                             <div>
-                                {rightColumnBells.length > 0 && <BellTable bells={rightColumnBells} onEditBell={setBellToEdit} onDelete={(id) => onDeleteBell(activeScheduleCategory, selectedDay, id)} isAdmin={isAdmin} />}
+                                {rightColumnBells.length > 0 && (
+                                    <BellTable 
+                                        bells={rightColumnBells} 
+                                        onEditBell={setBellToEdit} 
+                                        onDelete={(id) => onDeleteBell(activeScheduleCategory, selectedDay, id)} 
+                                        isAdmin={isAdmin} 
+                                        selectedIds={selectedBellIds}
+                                        onSelectBell={handleSelectBell}
+                                        onSelectAll={handleSelectAll}
+                                    />
+                                )}
                             </div>
                         </div>
                     ) : (
