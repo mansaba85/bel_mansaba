@@ -283,26 +283,44 @@ app.post('/api/save', async (req, res) => {
 
 // --- SERVE FRONTEND ---
 async function setupFrontend(app: express.Application) {
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-    console.log('Vite middleware enabled');
+  const isProd = process.env.NODE_ENV === 'production';
+  const rootDir = path.join(__dirname, '..');
+  
+  if (!isProd) {
+    try {
+      console.log('Initializing Vite middleware...');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+        root: rootDir
+      });
+      app.use(vite.middlewares);
+      console.log('Vite middleware enabled');
+    } catch (err) {
+      console.error('Failed to initialize Vite middleware:', err);
+    }
   } else {
-    const distPath = path.join(__dirname, '../dist');
+    const distPath = path.join(rootDir, 'dist');
+    console.log('Serving production build from:', distPath);
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('*', (req, res) => {
         res.sendFile(path.join(distPath, 'index.html'));
       });
+    } else {
+      console.warn('Production dist folder not found! Frontend will not be served.');
+      app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+          res.status(404).send('Frontend build not found. Please run npm run build.');
+        }
+      });
     }
   }
 }
 
-setupFrontend(app).then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
+console.log('Starting server initialization...');
+setupFrontend(app).finally(() => {
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Server is running on http://0.0.0.0:${PORT}`);
   });
 });
