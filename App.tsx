@@ -25,6 +25,8 @@ const App: React.FC = () => {
     const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>(Object.keys(DEFAULT_SCHEDULES_DATA)[0]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);
 
@@ -32,6 +34,7 @@ const App: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
+                console.log('Fetching data from backend...');
                 const response = await fetch(`${API_URL}/data`);
                 if (response.ok) {
                     const data = await response.json();
@@ -39,32 +42,35 @@ const App: React.FC = () => {
                     
                     // Clean schedules from "undefined" keys
                     const cleanedSchedules: SchedulesData = {};
-                    if (data.schedules) {
+                    if (data.schedules && Object.keys(data.schedules).length > 0) {
                         Object.keys(data.schedules).forEach(cat => {
                             if (cat !== 'undefined' && cat !== 'null' && cat !== '') {
                                 cleanedSchedules[cat] = data.schedules[cat];
                             }
                         });
+                        setSchedules(cleanedSchedules);
+                    } else {
+                        console.log('No schedules in backend, using defaults');
+                        setSchedules(DEFAULT_SCHEDULES_DATA);
                     }
 
                     setSchoolName(data.schoolName || 'MA NU 01 Banyuputih');
-                    setSchedules(Object.keys(cleanedSchedules).length > 0 ? cleanedSchedules : DEFAULT_SCHEDULES_DATA);
                     setIsDataLoaded(true);
                     
-                    const categories = Object.keys(cleanedSchedules);
+                    const categories = Object.keys(cleanedSchedules).length > 0 
+                        ? Object.keys(cleanedSchedules) 
+                        : Object.keys(DEFAULT_SCHEDULES_DATA);
+                        
                     if (data.activeScheduleCategory && categories.includes(data.activeScheduleCategory)) {
                         setActiveScheduleCategory(data.activeScheduleCategory);
-                    } else if (categories.length > 0) {
-                        setActiveScheduleCategory(categories[0]);
                     } else {
-                        setActiveScheduleCategory(Object.keys(DEFAULT_SCHEDULES_DATA)[0]);
+                        setActiveScheduleCategory(categories[0]);
                     }
                 } else {
-                    console.error('Backend returned an error:', response.status, response.statusText);
+                    throw new Error(`Server returned ${response.status}`);
                 }
             } catch (error) {
                 console.error('Failed to fetch from backend, using local defaults:', error);
-                // Fallback to localStorage if backend fails
                 const savedSchool = getFromLocalStorage('schoolName', 'MA NU 01 Banyuputih');
                 const savedSchedules = getFromLocalStorage('schedules', DEFAULT_SCHEDULES_DATA);
                 setSchoolName(savedSchool);
@@ -85,41 +91,66 @@ const App: React.FC = () => {
     const [lastPlayedTime, setLastPlayedTime] = useState<string>('');
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-    // Save to backend whenever state changes (with a small delay to avoid too many requests)
+    const handleManualSave = async () => {
+        if (!isDataLoaded) return;
+        setIsSaving(true);
+        try {
+            console.log('Manually saving data...', { schoolName, activeScheduleCategory });
+            const response = await fetch(`${API_URL}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schoolName, activeScheduleCategory, schedules }),
+            });
+            
+            if (response.ok) {
+                setHasUnsavedChanges(false);
+                const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                Toast.fire({ icon: 'success', title: 'Data berhasil disimpan!' });
+                
+                window.localStorage.setItem('schoolName', JSON.stringify(schoolName));
+                window.localStorage.setItem('schedules', JSON.stringify(schedules));
+                window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
+            } else {
+                throw new Error('Gagal menyimpan ke server');
+            }
+        } catch (error) {
+            console.error('Manual save error:', error);
+            Swal.fire({ title: 'Gagal', text: 'Gagal menyimpan data ke server.', icon: 'error', confirmButtonColor: '#dc2626' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    // Auto-save logic
     useEffect(() => {
-        if (isLoading || !isDataLoaded) return;
+        if (!isDataLoaded || isLoading) return;
+        
+        // Mark as having unsaved changes whenever these change
+        setHasUnsavedChanges(true);
 
         const saveData = async () => {
             try {
-                console.log('Saving data to backend...', { schoolName, activeScheduleCategory });
                 const response = await fetch(`${API_URL}/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ schoolName, activeScheduleCategory, schedules }),
                 });
                 
-                if (!response.ok) {
-                    console.error('Failed to save to backend. Status:', response.status, response.statusText);
-                    const errorData = await response.json();
-                    console.error('Error details:', errorData);
-                    if (errorData.details) {
-                        console.error('Server Error Message:', errorData.details);
-                    }
-                } else {
-                    console.log('Data saved successfully to backend');
-                    // Also save to localStorage as backup
+                if (response.ok) {
+                    setHasUnsavedChanges(false);
+                    console.log('Auto-save successful');
                     window.localStorage.setItem('schoolName', JSON.stringify(schoolName));
                     window.localStorage.setItem('schedules', JSON.stringify(schedules));
                     window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
                 }
             } catch (error) {
-                console.error('Network error while saving to backend:', error);
+                console.error('Auto-save failed:', error);
             }
         };
 
-        const timeoutId = setTimeout(saveData, 1000);
+        const timeoutId = setTimeout(saveData, 2000); // 2s debounce
         return () => clearTimeout(timeoutId);
-    }, [schoolName, activeScheduleCategory, schedules, isLoading, isDataLoaded]);
+    }, [schoolName, activeScheduleCategory, schedules, isDataLoaded, isLoading]);
 
     // Clock and Bell Ringing Logic
     useEffect(() => {
@@ -274,6 +305,32 @@ const App: React.FC = () => {
                 onAdminLogin={handleAdminLogin}
                 onAdminLogout={handleAdminLogout}
             />
+            
+            {/* Status Bar / Manual Save */}
+            {isAdmin && isDataLoaded && (
+                <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
+                    {hasUnsavedChanges && (
+                        <div className="bg-amber-100 text-amber-700 px-3 py-1 rounded-full text-[10px] font-bold shadow-sm border border-amber-200 animate-pulse">
+                            Ada perubahan belum tersimpan
+                        </div>
+                    )}
+                    <button 
+                        onClick={handleManualSave}
+                        disabled={isSaving}
+                        className={`flex items-center gap-2 px-5 py-3 rounded-full font-bold shadow-lg transition-all active:scale-95
+                            ${isSaving ? 'bg-slate-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700 text-white'}
+                        `}
+                    >
+                        {isSaving ? (
+                            <i className="fa-solid fa-circle-notch fa-spin"></i>
+                        ) : (
+                            <i className="fa-solid fa-floppy-disk"></i>
+                        )}
+                        {isSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                    </button>
+                </div>
+            )}
+
             <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
                 <ScheduleEditor
                     schedules={schedules}

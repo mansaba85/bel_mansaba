@@ -76,6 +76,7 @@ Category.init(
 );
 
 class Bell extends Model {
+  public db_id!: number;
   public id!: string;
   public category!: string;
   public day!: string;
@@ -86,7 +87,8 @@ class Bell extends Model {
 }
 Bell.init(
   {
-    id: { type: DataTypes.STRING, primaryKey: true },
+    db_id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+    id: { type: DataTypes.STRING },
     category: { type: DataTypes.STRING },
     day: { type: DataTypes.STRING },
     name: { type: DataTypes.STRING },
@@ -202,46 +204,61 @@ app.get('/api/data', async (req, res) => {
 app.post('/api/save', async (req, res) => {
   const { schoolName, activeScheduleCategory, schedules } = req.body;
   console.log('Received save request for:', schoolName);
+  
+  const transaction = await sequelize.transaction();
+  
   try {
     if (schoolName !== undefined) {
-      await Setting.upsert({ key: 'schoolName', value: schoolName });
+      await Setting.upsert({ key: 'schoolName', value: schoolName }, { transaction });
     }
     if (activeScheduleCategory !== undefined) {
-      await Setting.upsert({ key: 'activeScheduleCategory', value: activeScheduleCategory });
+      await Setting.upsert({ key: 'activeScheduleCategory', value: activeScheduleCategory }, { transaction });
     }
+
     if (schedules !== undefined) {
       // Update categories
-      await Category.destroy({ where: {} });
+      await Category.destroy({ where: {}, transaction });
       for (const categoryName in schedules) {
         if (!categoryName || categoryName === 'undefined' || categoryName === 'null') continue;
-        await Category.create({ name: categoryName });
+        await Category.create({ name: categoryName }, { transaction });
       }
 
       // Update bells
-      await Bell.destroy({ where: {} });
+      await Bell.destroy({ where: {}, transaction });
       let bellCount = 0;
       for (const category in schedules) {
         for (const day in schedules[category]) {
           for (const bell of schedules[category][day]) {
-            console.log(`Saving bell: ${bell.name}, sound: ${bell.sound}, soundName: ${bell.soundName}`);
             await Bell.create({
-              ...bell,
+              id: bell.id,
+              name: bell.name,
+              time: bell.time,
+              sound: bell.sound,
+              soundName: bell.soundName,
               category,
               day,
-            });
+            }, { transaction });
             bellCount++;
           }
         }
       }
       console.log(`Saved ${bellCount} bells to database`);
     }
+    
+    await transaction.commit();
     res.json({ success: true });
   } catch (error: any) {
+    await transaction.rollback();
     console.error('Failed to save data. Full error:', error);
+    
+    let details = error.message;
+    if (error.name === 'SequelizeValidationError' || error.name === 'SequelizeUniqueConstraintError') {
+      details = error.errors.map((e: any) => e.message).join(', ');
+    }
+    
     res.status(500).json({ 
       error: 'Failed to save data', 
-      details: error.message,
-      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined 
+      details: details
     });
   }
 });
