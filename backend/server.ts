@@ -292,14 +292,22 @@ app.post('/api/save', async (req, res) => {
 // --- SERVE FRONTEND ---
 async function setupFrontend(app: express.Application) {
   const isProd = process.env.NODE_ENV === 'production';
-  const rootDir = process.cwd(); // Use process.cwd() for more reliable pathing
+  const rootDir = process.cwd();
+  const distPath = path.join(rootDir, 'dist');
   
-  console.log(`Frontend Setup: isProd=${isProd}, rootDir=${rootDir}`);
+  console.log(`Frontend Setup: isProd=${isProd}, rootDir=${rootDir}, distExists=${fs.existsSync(distPath)}`);
   
-  if (!isProd) {
+  // 1. Try to serve Static Files first if they exist (Production mode or fallback)
+  if (fs.existsSync(distPath)) {
+    console.log('Found "dist" folder. Enabling static serving.');
+    app.use(express.static(distPath));
+    // We don't return here because we want to handle the SPA catch-all at the end
+  }
+
+  // 2. If not in production and dist doesn't exist, try Vite Middleware
+  if (!isProd && !fs.existsSync(distPath)) {
     try {
-      console.log('Attempting to initialize Vite middleware...');
-      // Dynamic import to avoid crash in production if vite is not installed
+      console.log('Attempting to initialize Vite middleware (Development Mode)...');
       const { createServer: createViteServer } = await import('vite');
       const vite = await createViteServer({
         server: { middlewareMode: true },
@@ -308,43 +316,44 @@ async function setupFrontend(app: express.Application) {
       });
       app.use(vite.middlewares);
       console.log('Vite middleware enabled successfully');
+      return; // Vite handles its own catch-all
     } catch (err) {
-      console.error('CRITICAL: Failed to initialize Vite middleware:', err);
-      app.get('/', (req, res) => {
-        res.status(500).send('Vite development server failed to start. Check server logs.');
-      });
-    }
-  } else {
-    const distPath = path.join(rootDir, 'dist');
-    console.log('Production Mode: Looking for dist at', distPath);
-    
-    if (fs.existsSync(distPath)) {
-      app.use(express.static(distPath));
-      app.get('*', (req, res) => {
-        res.sendFile(path.join(distPath, 'index.html'));
-      });
-      console.log('Static production serving enabled');
-    } else {
-      console.error('CRITICAL: Production dist folder NOT FOUND at', distPath);
-      app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
-          res.status(404).send(`
-            <h1>Frontend Build Not Found</h1>
-            <p>Please run <code>npm run build</code> on your server to generate the production files.</p>
-            <p>Current Directory: ${rootDir}</p>
-            <p>Expected Dist Path: ${distPath}</p>
-          `);
-        }
-      });
+      console.warn('Vite middleware failed to start. This is normal in production if "dist" exists.', err);
     }
   }
-  
-  // Final fallback to prevent "Cannot GET /"
-  app.use((req, res) => {
-    if (!req.path.startsWith('/api')) {
-      res.status(404).send('Resource not found. If this is the homepage, the frontend failed to load.');
-    }
-  });
+
+  // 3. SPA Catch-all for Static Files
+  if (fs.existsSync(distPath)) {
+    app.get('*', (req, res, next) => {
+      // Skip API and Uploads
+      if (req.path.startsWith('/api') || req.path.startsWith('/uploads')) {
+        return next();
+      }
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
+  } else {
+    // 4. Ultimate Fallback if nothing works
+    app.get('*', (req, res) => {
+      if (req.path.startsWith('/api')) return;
+      
+      res.status(404).send(`
+        <div style="font-family: sans-serif; padding: 20px; line-height: 1.6;">
+          <h1 style="color: #e11d48;">Tampilan Tidak Ditemukan (Frontend Missing)</h1>
+          <p>Server berhasil berjalan, tetapi tidak menemukan file tampilan untuk ditampilkan.</p>
+          <div style="background: #f3f4f6; padding: 15px; border-radius: 8px;">
+            <strong>Solusi untuk aaPanel:</strong><br>
+            1. Buka terminal di folder project.<br>
+            2. Jalankan perintah: <code>npm run build</code><br>
+            3. Tunggu hingga selesai, lalu refresh halaman ini.
+          </div>
+          <p style="font-size: 0.8em; color: #6b7280; margin-top: 20px;">
+            Mode: ${process.env.NODE_ENV || 'development'}<br>
+            Lokasi: ${rootDir}
+          </p>
+        </div>
+      `);
+    });
+  }
 }
 
 console.log('Starting server initialization...');

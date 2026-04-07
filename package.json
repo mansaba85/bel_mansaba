@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx backend/server.ts",
+    "start": "NODE_ENV=production tsx backend/server.ts",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "tsc --noEmit"
