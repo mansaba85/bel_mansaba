@@ -55,7 +55,5 @@ export async function initDb() {
     console.log('Database initialized successfully');
   } catch (error) {
     console.error('Error initializing database:', error);
-    // If connection fails, we might want to log it and let the server start
-    // but the app will show errors on API calls.
   }
 }

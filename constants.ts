@@ -1,5 +1,15 @@
 import { Bell } from './types';
 
+export const API_URL = import.meta.env.VITE_API_URL || '';
+export const BASE_URL = API_URL.includes('://') ? API_URL : '';
+
+export const getAudioUrl = (sound: string | undefined): string | null => {
+    if (!sound) return null;
+    if (sound.startsWith('http')) return sound;
+    if (sound.startsWith('/uploads')) return `${BASE_URL}${sound}`;
+    return sound; // fallback for base64
+};
+
 export const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
 const TUE_WED_THU_SCHEDULE: Bell[] = [

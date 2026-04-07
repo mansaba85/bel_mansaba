@@ -2,16 +2,44 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import { Sequelize, DataTypes, Model } from 'sequelize';
-
+import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5002;
 
+// Multer setup for audio uploads
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    const dir = path.join(__dirname, 'uploads/audio');
+    if (!fs.existsSync(dir)) {
+      fs.mkdirSync(dir, { recursive: true });
+    }
+    cb(null, dir);
+  },
+  filename: (req, file, cb) => {
+    cb(null, `${Date.now()}-${file.originalname}`);
+  },
+});
+
+const upload = multer({
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
+});
+
 app.use(cors());
-app.use(express.json({ limit: '50mb' })); // Allow large base64 audio data
+app.use(express.json({ limit: '50mb' }));
+
+// Serve uploads folder
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database setup
 const sequelize = new Sequelize(
@@ -26,10 +54,7 @@ const sequelize = new Sequelize(
 );
 
 // Models
-class Setting extends Model {
-  public key!: string;
-  public value!: string;
-}
+class Setting extends Model {}
 Setting.init(
   {
     key: { type: DataTypes.STRING, primaryKey: true },
@@ -38,15 +63,7 @@ Setting.init(
   { sequelize, modelName: 'Setting' }
 );
 
-class Bell extends Model {
-  public id!: string;
-  public category!: string;
-  public day!: string;
-  public name!: string;
-  public time!: string;
-  public sound!: string;
-  public soundName!: string;
-}
+class Bell extends Model {}
 Bell.init(
   {
     id: { type: DataTypes.STRING, primaryKey: true },
@@ -61,7 +78,7 @@ Bell.init(
 );
 
 // Initial Data
-const DEFAULT_SCHEDULES_DATA: any = {
+const DEFAULT_SCHEDULES_DATA = {
   "Jadwal Normal": {
     "Senin": [
       { id: "s1", name: "Upacara Bendera", time: "07:00", sound: "", soundName: "Tidak ada suara" },
@@ -121,7 +138,7 @@ app.get('/api/data', async (req, res) => {
     const schoolName = settings.find(s => s.key === 'schoolName')?.value || 'MA NU 01 Banyuputih';
     const activeScheduleCategory = settings.find(s => s.key === 'activeScheduleCategory')?.value || '';
 
-    const schedules: any = {};
+    const schedules = {};
     bells.forEach(bell => {
       if (!schedules[bell.category]) schedules[bell.category] = {};
       if (!schedules[bell.category][bell.day]) schedules[bell.category][bell.day] = [];
@@ -150,8 +167,6 @@ app.post('/api/save', async (req, res) => {
       await Setting.upsert({ key: 'activeScheduleCategory', value: activeScheduleCategory });
     }
     if (schedules !== undefined) {
-      // For simplicity, clear and re-insert bells
-      // In a real app, you'd want a more efficient way
       await Bell.destroy({ where: {} });
       for (const category in schedules) {
         for (const day in schedules[category]) {
@@ -172,12 +187,19 @@ app.post('/api/save', async (req, res) => {
   }
 });
 
+// Audio Upload Endpoint
+app.post('/api/upload-audio', upload.single('audio'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ error: 'No file uploaded' });
+  }
+  const fileUrl = `/uploads/audio/${req.file.filename}`;
+  res.json({ url: fileUrl, filename: req.file.originalname });
+});
+
 // --- SERVE FRONTEND ---
-// Arahkan ke folder dist (hasil build frontend)
 const distPath = path.join(__dirname, '../dist');
 app.use(express.static(distPath));
 
-// Agar React Router (SPA) berjalan lancar, arahkan semua request non-API ke index.html
 app.get('*', (req, res) => {
   res.sendFile(path.join(distPath, 'index.html'));
 });
