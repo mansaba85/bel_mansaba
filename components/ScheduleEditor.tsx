@@ -63,8 +63,8 @@ const EditBellModal: React.FC<{
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 10 * 1024 * 1024) {
-                Swal.fire({ title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 10MB.', icon: 'error', confirmButtonColor: '#dc2626' });
+            if (file.size > 5 * 1024 * 1024) {
+                Swal.fire({ title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 5MB.', icon: 'error', confirmButtonColor: '#dc2626' });
                 return;
             }
             try {
@@ -336,8 +336,8 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     const handleNewFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-             if (file.size > 10 * 1024 * 1024) {
-                Swal.fire({title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 10MB.', icon: 'error', confirmButtonColor: '#dc2626'});
+             if (file.size > 5 * 1024 * 1024) {
+                Swal.fire({title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 5MB.', icon: 'error', confirmButtonColor: '#dc2626'});
                 return;
             }
             try {
