@@ -38,6 +38,16 @@ Setting.init(
   { sequelize, modelName: 'Setting' }
 );
 
+class Category extends Model {
+  public name!: string;
+}
+Category.init(
+  {
+    name: { type: DataTypes.STRING, primaryKey: true },
+  },
+  { sequelize, modelName: 'Category' }
+);
+
 class Bell extends Model {
   public id!: string;
   public category!: string;
@@ -87,17 +97,18 @@ const initDb = async () => {
     await sequelize.sync({ alter: true });
 
     // Check if data exists, if not populate
-    const settingCount = await Setting.count();
-    if (settingCount === 0) {
+    const categoryCount = await Category.count();
+    if (categoryCount === 0) {
       await Setting.create({ key: 'schoolName', value: 'MA NU 01 Banyuputih' });
       await Setting.create({ key: 'activeScheduleCategory', value: 'Jadwal Normal' });
 
-      for (const category in DEFAULT_SCHEDULES_DATA) {
-        for (const day in DEFAULT_SCHEDULES_DATA[category]) {
-          for (const bell of DEFAULT_SCHEDULES_DATA[category][day]) {
+      for (const categoryName in DEFAULT_SCHEDULES_DATA) {
+        await Category.create({ name: categoryName });
+        for (const day in DEFAULT_SCHEDULES_DATA[categoryName]) {
+          for (const bell of DEFAULT_SCHEDULES_DATA[categoryName][day]) {
             await Bell.create({
               ...bell,
-              category,
+              category: categoryName,
               day,
             });
           }
@@ -116,26 +127,38 @@ initDb();
 app.get('/api/data', async (req, res) => {
   try {
     const settings = await Setting.findAll();
+    const categories = await Category.findAll();
     const bells = await Bell.findAll();
 
     const schoolName = settings.find(s => s.key === 'schoolName')?.value || 'MA NU 01 Banyuputih';
     const activeScheduleCategory = settings.find(s => s.key === 'activeScheduleCategory')?.value || '';
 
     const schedules: any = {};
-    bells.forEach(bell => {
-      if (!schedules[bell.category]) schedules[bell.category] = {};
-      if (!schedules[bell.category][bell.day]) schedules[bell.category][bell.day] = [];
-      schedules[bell.category][bell.day].push({
-        id: bell.id,
-        name: bell.name,
-        time: bell.time,
-        sound: bell.sound,
-        soundName: bell.soundName,
+    // Initialize all categories with empty days
+    categories.forEach(cat => {
+      schedules[cat.name] = {};
+      const DAYS = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
+      DAYS.forEach(day => {
+        schedules[cat.name][day] = [];
       });
+    });
+
+    // Fill in the bells
+    bells.forEach(bell => {
+      if (schedules[bell.category]) {
+        schedules[bell.category][bell.day].push({
+          id: bell.id,
+          name: bell.name,
+          time: bell.time,
+          sound: bell.sound,
+          soundName: bell.soundName,
+        });
+      }
     });
 
     res.json({ schoolName, activeScheduleCategory, schedules });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ error: 'Failed to fetch data' });
   }
 });
@@ -150,8 +173,13 @@ app.post('/api/save', async (req, res) => {
       await Setting.upsert({ key: 'activeScheduleCategory', value: activeScheduleCategory });
     }
     if (schedules !== undefined) {
-      // For simplicity, clear and re-insert bells
-      // In a real app, you'd want a more efficient way
+      // Update categories
+      await Category.destroy({ where: {} });
+      for (const categoryName in schedules) {
+        await Category.create({ name: categoryName });
+      }
+
+      // Update bells
       await Bell.destroy({ where: {} });
       for (const category in schedules) {
         for (const day in schedules[category]) {

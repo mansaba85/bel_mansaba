@@ -17,13 +17,13 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
     }
 };
 
-// API Base URL - In production with reverse proxy, use relative path
-const API_URL = import.meta.env.VITE_API_URL || '/api';
+// API Base URL - Pointing to the live backend for development
+const API_URL = import.meta.env.VITE_API_URL || 'https://bel.manubanyuputih.id/api';
 
 const App: React.FC = () => {
     const [schoolName, setSchoolName] = useState<string>('MA NU 01 Banyuputih');
     const [schedules, setSchedules] = useState<SchedulesData>(DEFAULT_SCHEDULES_DATA);
-    const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>('');
+    const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>(Object.keys(DEFAULT_SCHEDULES_DATA)[0]);
     const [isLoading, setIsLoading] = useState(true);
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);

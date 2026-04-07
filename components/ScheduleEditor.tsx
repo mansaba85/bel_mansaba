@@ -412,7 +412,11 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                             onChange={e => setPendingCategory(e.target.value)}
                             className={`form-input w-full sm:min-w-[200px] font-bold transition-all ${isCategoryChanged ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-300'}`}
                         >
-                            {scheduleCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+                            {scheduleCategories.length > 0 ? (
+                                scheduleCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)
+                            ) : (
+                                <option value="">Tidak ada kategori</option>
+                            )}
                         </select>
                         {!isCategoryChanged && (
                             <div className="absolute -right-2 -top-2 bg-green-500 text-white w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm scale-100 transition-transform">
