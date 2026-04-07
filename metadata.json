@@ -1,0 +1,5 @@
+{
+  "name": "School Bell Scheduler",
+  "description": "An automated school bell scheduling application that allows users to create, manage, and assign different bell schedules for each day of the week.",
+  "requestFramePermissions": []
+}
