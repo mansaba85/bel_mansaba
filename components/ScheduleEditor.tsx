@@ -15,6 +15,7 @@ interface ScheduleEditorProps {
     onDeleteMultipleBells: (category: string, day: string, bellIds: string[]) => void;
     onCopySchedule: (fromDay: string, toDays: string[], category: string) => void;
     onAddCategory: (newCategoryName: string) => void;
+    onDeleteCategory: (categoryName: string) => void;
     currentTime: Date;
     isAdmin: boolean;
 }
@@ -323,6 +324,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     onDeleteMultipleBells,
     onCopySchedule,
     onAddCategory,
+    onDeleteCategory,
     currentTime,
     isAdmin,
 }) => {
@@ -580,9 +582,34 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                     )}
 
                     {isAdmin && (
-                         <button onClick={showAddCategoryModal} className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-white border border-slate-300 shadow-sm text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors" title="Tambah Kategori">
-                            <i className="fa-solid fa-plus"></i>
-                        </button>
+                        <div className="flex gap-2">
+                             <button onClick={showAddCategoryModal} className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-white border border-slate-300 shadow-sm text-slate-700 font-medium rounded-lg hover:bg-slate-50 transition-colors" title="Tambah Kategori">
+                                <i className="fa-solid fa-plus"></i>
+                            </button>
+                            {scheduleCategories.length > 1 && (
+                                <button 
+                                    onClick={() => {
+                                        Swal.fire({
+                                            title: 'Hapus Kategori?',
+                                            text: `Seluruh jadwal di kategori "${pendingCategory}" akan dihapus permanen!`,
+                                            icon: 'warning',
+                                            showCancelButton: true,
+                                            confirmButtonColor: '#dc2626',
+                                            confirmButtonText: 'Ya, Hapus!',
+                                            cancelButtonText: 'Batal'
+                                        }).then((result: { isConfirmed: boolean }) => {
+                                            if (result.isConfirmed) {
+                                                onDeleteCategory(pendingCategory);
+                                            }
+                                        });
+                                    }}
+                                    className="flex-shrink-0 flex items-center justify-center w-10 h-10 bg-white border border-slate-300 shadow-sm text-slate-400 font-medium rounded-lg hover:bg-red-50 hover:text-red-600 transition-colors" 
+                                    title="Hapus Kategori"
+                                >
+                                    <i className="fa-solid fa-trash-can"></i>
+                                </button>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>

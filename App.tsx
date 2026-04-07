@@ -3,6 +3,7 @@ import { Bell, SchedulesData, Schedule } from './types';
 import { DAYS_OF_WEEK, DEFAULT_SCHEDULES_DATA, API_URL } from './constants';
 import { Header } from './components/Header';
 import { ScheduleEditor } from './components/ScheduleEditor';
+import * as XLSX from 'xlsx';
 
 declare const Swal: any;
 
@@ -239,6 +240,27 @@ const App: React.FC = () => {
         Swal.fire({ title: 'Sukses', text: `Kategori "${newCategoryName}" berhasil ditambahkan.`, icon: 'success', confirmButtonColor: '#dc2626'});
     };
 
+    const handleDeleteCategory = (categoryName: string) => {
+        const categories = Object.keys(schedules);
+        if (categories.length <= 1) {
+            Swal.fire({ title: 'Gagal', text: 'Minimal harus ada satu kategori.', icon: 'error', confirmButtonColor: '#dc2626' });
+            return;
+        }
+        
+        setSchedules(prev => {
+            const newSchedules = { ...prev };
+            delete newSchedules[categoryName];
+            return newSchedules;
+        });
+        
+        if (activeScheduleCategory === categoryName) {
+            const remainingCategories = categories.filter(c => c !== categoryName);
+            setActiveScheduleCategory(remainingCategories[0]);
+        }
+        
+        Swal.fire({ title: 'Sukses', text: `Kategori "${categoryName}" berhasil dihapus.`, icon: 'success', confirmButtonColor: '#dc2626' });
+    };
+
     const handleAdminLogin = (password: string) => {
         // Mock authentication
         if (password === 'admin123') {
@@ -310,6 +332,73 @@ const App: React.FC = () => {
         reader.readAsText(file);
     };
 
+    const handleDownloadTemplate = () => {
+        const templateData = [
+            { Kategori: 'Jadwal Normal', Hari: 'Senin', Nama: 'Upacara Bendera', Waktu: '07:00' },
+            { Kategori: 'Jadwal Normal', Hari: 'Senin', Nama: 'Jam Pelajaran 1', Waktu: '07:30' },
+            { Kategori: 'Jadwal Normal', Hari: 'Selasa', Nama: 'Masuk', Waktu: '07:00' },
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Template Jadwal");
+        XLSX.writeFile(wb, "template-jadwal-bel.xlsx");
+    };
+
+    const handleImportExcel = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const data = new Uint8Array(event.target?.result as ArrayBuffer);
+                const workbook = XLSX.read(data, { type: 'array' });
+                const sheetName = workbook.SheetNames[0];
+                const worksheet = workbook.Sheets[sheetName];
+                const jsonData = XLSX.utils.sheet_to_json(worksheet) as any[];
+
+                const newSchedules: SchedulesData = { ...schedules };
+
+                jsonData.forEach((row: any) => {
+                    const category = row.Kategori || 'Jadwal Baru';
+                    const day = row.Hari || 'Senin';
+                    const name = row.Nama || 'Tanpa Nama';
+                    const time = row.Waktu || '00:00';
+
+                    if (!newSchedules[category]) {
+                        newSchedules[category] = {
+                            "Senin": [], "Selasa": [], "Rabu": [], "Kamis": [], "Jumat": [], "Sabtu": [], "Minggu": []
+                        };
+                    }
+
+                    if (!newSchedules[category][day]) {
+                        newSchedules[category][day] = [];
+                    }
+
+                    newSchedules[category][day].push({
+                        id: `imp-${Math.random().toString(36).substr(2, 9)}`,
+                        name,
+                        time,
+                        sound: '',
+                        soundName: 'Tidak ada suara'
+                    });
+                });
+
+                setSchedules(newSchedules);
+                Swal.fire({ 
+                    title: 'Sukses', 
+                    text: `${jsonData.length} jadwal berhasil diimpor. Jangan lupa klik Simpan di Dashboard untuk menyimpan ke database.`, 
+                    icon: 'success' 
+                });
+            } catch (error) {
+                console.error(error);
+                Swal.fire({ title: 'Gagal', text: 'Gagal membaca file Excel.', icon: 'error' });
+            }
+        };
+        reader.readAsArrayBuffer(file);
+    };
+
     if (isLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-slate-100">
@@ -348,6 +437,7 @@ const App: React.FC = () => {
                         onDeleteMultipleBells={handleDeleteMultipleBells}
                         onCopySchedule={handleCopySchedule}
                         onAddCategory={handleAddCategory}
+                        onDeleteCategory={handleDeleteCategory}
                         currentTime={currentTime}
                         isAdmin={isAdmin}
                     />
@@ -399,6 +489,41 @@ const App: React.FC = () => {
 
                             <div className="space-y-6">
                                 <section>
+                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Excel Import</h3>
+                                    <div className="grid grid-cols-1 gap-4">
+                                        <button 
+                                            onClick={handleDownloadTemplate}
+                                            className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center group-hover:bg-amber-100 transition-colors">
+                                                    <i className="fa-solid fa-file-excel"></i>
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="text-sm font-bold text-slate-800">Unduh Template Excel</div>
+                                                    <div className="text-xs text-slate-500">Gunakan format ini untuk import data</div>
+                                                </div>
+                                            </div>
+                                            <i className="fa-solid fa-download text-slate-300"></i>
+                                        </button>
+
+                                        <label className="flex items-center justify-between p-4 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 transition-colors group cursor-pointer">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center group-hover:bg-indigo-100 transition-colors">
+                                                    <i className="fa-solid fa-file-import"></i>
+                                                </div>
+                                                <div className="text-left">
+                                                    <div className="text-sm font-bold text-slate-800">Import dari Excel</div>
+                                                    <div className="text-xs text-slate-500">Unggah file Excel yang sudah diisi</div>
+                                                </div>
+                                            </div>
+                                            <input type="file" accept=".xlsx, .xls" onChange={handleImportExcel} className="sr-only" />
+                                            <i className="fa-solid fa-chevron-right text-slate-300"></i>
+                                        </label>
+                                    </div>
+                                </section>
+
+                                <section>
                                     <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest mb-4">Backup & Restore</h3>
                                     <div className="grid grid-cols-1 gap-4">
                                         <button 
@@ -410,7 +535,7 @@ const App: React.FC = () => {
                                                     <i className="fa-solid fa-download"></i>
                                                 </div>
                                                 <div className="text-left">
-                                                    <div className="text-sm font-bold text-slate-800">Backup Data</div>
+                                                    <div className="text-sm font-bold text-slate-800">Backup Data (JSON)</div>
                                                     <div className="text-xs text-slate-500">Unduh semua jadwal ke file JSON</div>
                                                 </div>
                                             </div>
@@ -423,7 +548,7 @@ const App: React.FC = () => {
                                                     <i className="fa-solid fa-upload"></i>
                                                 </div>
                                                 <div className="text-left">
-                                                    <div className="text-sm font-bold text-slate-800">Restore Data</div>
+                                                    <div className="text-sm font-bold text-slate-800">Restore Data (JSON)</div>
                                                     <div className="text-xs text-slate-500">Pulihkan data dari file backup</div>
                                                 </div>
                                             </div>
