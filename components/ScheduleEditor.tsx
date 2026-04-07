@@ -325,6 +325,42 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     const [newBellSoundName, setNewBellSoundName] = useState('');
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const [isSaving, setIsSaving] = useState(false);
+    const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleSync = async () => {
+        setIsSyncing(true);
+        try {
+            window.localStorage.removeItem('schedules');
+            window.localStorage.removeItem('schoolName');
+            window.localStorage.removeItem('activeScheduleCategory');
+            window.location.reload();
+        } catch (error) {
+            Swal.fire({ title: 'Gagal', text: 'Gagal sinkronisasi.', icon: 'error' });
+            setIsSyncing(false);
+        }
+    };
+
+    const handleSaveManual = async () => {
+        setIsSaving(true);
+        try {
+            const response = await fetch(`${API_URL}/save`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ schedules }),
+            });
+            if (response.ok) {
+                Swal.fire({ title: 'Tersimpan', text: 'Perubahan jadwal berhasil disimpan ke database.', icon: 'success', timer: 2000, showConfirmButton: false });
+            } else {
+                throw new Error('Gagal simpan');
+            }
+        } catch (error) {
+            Swal.fire({ title: 'Gagal', text: 'Gagal menyimpan ke database. Pastikan server terhubung.', icon: 'error' });
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
     const activeSchedule = (schedules[activeScheduleCategory]?.[selectedDay] || []).sort((a, b) => a.time.localeCompare(b.time));
 
     useEffect(() => {
@@ -533,7 +569,26 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                 </div>
 
                 {isAdmin && (
-                    <div className="mt-8 border-t border-slate-100 pt-8">
+                    <div className="mt-8 border-t border-slate-100 pt-8 flex flex-col gap-6">
+                        <div className="flex flex-wrap gap-3 justify-center sm:justify-start">
+                            <button
+                                onClick={handleSaveManual}
+                                disabled={isSaving}
+                                className="flex items-center space-x-2 px-6 py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 shadow-lg shadow-green-200 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                <i className={`fa-solid fa-floppy-disk ${isSaving ? 'animate-spin' : ''}`}></i>
+                                <span>{isSaving ? 'Menyimpan...' : 'Simpan Semua Perubahan'}</span>
+                            </button>
+                            <button
+                                onClick={handleSync}
+                                disabled={isSyncing}
+                                className="flex items-center space-x-2 px-6 py-3 bg-amber-500 text-white font-bold rounded-xl hover:bg-amber-600 shadow-lg shadow-amber-200 transition-all active:scale-95 disabled:opacity-50"
+                            >
+                                <i className={`fa-solid fa-sync ${isSyncing ? 'animate-spin' : ''}`}></i>
+                                <span>{isSyncing ? 'Sinkronisasi...' : 'Bersihkan Cache & Sync'}</span>
+                            </button>
+                        </div>
+
                         <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
                             <h2 className="text-lg font-bold text-slate-800 mb-6 flex items-center gap-2">
                                 <span className="w-8 h-8 bg-red-100 text-red-600 rounded-lg flex items-center justify-center">

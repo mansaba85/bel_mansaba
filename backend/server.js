@@ -116,6 +116,7 @@ const initDb = async () => {
     if (settingCount === 0) {
       await Setting.create({ key: 'schoolName', value: 'MA NU 01 Banyuputih' });
       await Setting.create({ key: 'activeScheduleCategory', value: 'Jadwal Normal' });
+      await Setting.create({ key: 'categories', value: JSON.stringify(["Jadwal Normal"]) });
       console.log('Default settings created.');
     }
 
@@ -152,14 +153,38 @@ app.get('/api/data', async (req, res) => {
     const bells = await Bell.findAll();
 
     const schoolName = settings.find(s => s.key === 'schoolName')?.value || 'MA NU 01 Banyuputih';
-    const activeScheduleCategory = settings.find(s => s.key === 'activeScheduleCategory')?.value || '';
+    const activeScheduleCategory = settings.find(s => s.key === 'activeScheduleCategory')?.value || 'Jadwal Normal';
+    const categoriesJson = settings.find(s => s.key === 'categories')?.value;
+    
+    let categoryList = ["Jadwal Normal"];
+    if (categoriesJson) {
+      try {
+        categoryList = JSON.parse(categoriesJson);
+      } catch (e) {
+        console.error('Failed to parse categories JSON');
+      }
+    }
 
+    // Initialize schedules with all known categories
     const schedules = {};
+    categoryList.forEach(cat => {
+      schedules[cat] = {
+        "Senin": [], "Selasa": [], "Rabu": [], "Kamis": [], "Jumat": [], "Sabtu": [], "Minggu": []
+      };
+    });
+
+    // Fill with actual bells from DB
     bells.forEach(bell => {
-      if (!schedules[bell.category]) schedules[bell.category] = {};
-      if (!schedules[bell.category][bell.day]) schedules[bell.category][bell.day] = [];
+      if (!schedules[bell.category]) {
+        schedules[bell.category] = {
+          "Senin": [], "Selasa": [], "Rabu": [], "Kamis": [], "Jumat": [], "Sabtu": [], "Minggu": []
+        };
+      }
+      if (!schedules[bell.category][bell.day]) {
+        schedules[bell.category][bell.day] = [];
+      }
       schedules[bell.category][bell.day].push({
-        id: bell.bellId, // Map bellId back to id for frontend
+        id: bell.bellId,
         name: bell.name,
         time: bell.time,
         sound: bell.sound,
@@ -167,16 +192,16 @@ app.get('/api/data', async (req, res) => {
       });
     });
 
-    // If no schedules found in DB, use default
+    // Final safety check: if everything is empty, use defaults
     const finalSchedules = Object.keys(schedules).length > 0 ? schedules : DEFAULT_SCHEDULES_DATA;
-    const finalActiveCategory = activeScheduleCategory || Object.keys(finalSchedules)[0];
 
     res.json({ 
       schoolName, 
-      activeScheduleCategory: finalActiveCategory, 
+      activeScheduleCategory, 
       schedules: finalSchedules 
     });
   } catch (error) {
+    console.error('GET /api/data error:', error);
     res.status(500).json({ error: 'Failed to fetch data' });
   }
 });
@@ -191,26 +216,33 @@ app.post('/api/save', async (req, res) => {
       await Setting.upsert({ key: 'activeScheduleCategory', value: activeScheduleCategory });
     }
     if (schedules !== undefined) {
+      // Save the list of categories explicitly
+      const categoryList = Object.keys(schedules);
+      await Setting.upsert({ key: 'categories', value: JSON.stringify(categoryList) });
+
+      // Clear and rebuild bells
       await Bell.destroy({ where: {} });
       for (const category in schedules) {
         for (const day in schedules[category]) {
-          for (const bell of schedules[category][day]) {
-            await Bell.create({
-              bellId: bell.id,
-              name: bell.name,
-              time: bell.time,
-              sound: bell.sound,
-              soundName: bell.soundName,
-              category,
-              day,
-            });
+          if (Array.isArray(schedules[category][day])) {
+            for (const bell of schedules[category][day]) {
+              await Bell.create({
+                bellId: bell.id,
+                name: bell.name,
+                time: bell.time,
+                sound: bell.sound,
+                soundName: bell.soundName,
+                category,
+                day,
+              });
+            }
           }
         }
       }
     }
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
+    console.error('POST /api/save error:', error);
     res.status(500).json({ error: 'Failed to save data' });
   }
 });
