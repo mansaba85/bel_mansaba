@@ -40,7 +40,9 @@ const uploadAudio = async (file: File): Promise<{ url: string, filename: string 
         throw new Error('Gagal mengunggah file audio');
     }
     
-    return response.json();
+    const result = await response.json();
+    console.log('Upload result:', result);
+    return result;
 };
 
 const EditBellModal: React.FC<{

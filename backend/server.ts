@@ -5,11 +5,16 @@ import { Sequelize, DataTypes, Model } from 'sequelize';
 import path from 'path';
 import fs from 'fs';
 import multer from 'multer';
+import { fileURLToPath } from 'url';
+import { createServer as createViteServer } from 'vite';
 
 dotenv.config();
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
-const PORT = process.env.PORT || 5002;
+const PORT = 3000;
 
 // Ensure uploads directory exists
 const uploadsDir = path.join(__dirname, 'uploads', 'audio');
@@ -239,8 +244,8 @@ app.post('/api/save', async (req, res) => {
           for (const bell of schedules[category][day]) {
             if (!bell || !bell.id) continue;
             
-            // LOG EACH BELL BEING SAVED
-            console.log(`DB SAVE - Cat: ${category}, Day: ${day}, Name: ${bell.name}, SoundName: ${bell.soundName}`);
+            // LOG EACH BELL BEING SAVED WITH FULL DATA
+            console.log('DB SAVE FULL BELL DATA:', JSON.stringify(bell));
             
             await Bell.create({
               id: bell.id,
@@ -277,15 +282,27 @@ app.post('/api/save', async (req, res) => {
 });
 
 // --- SERVE FRONTEND ---
-// Arahkan ke folder dist (hasil build frontend)
-const distPath = path.join(__dirname, '../dist');
-app.use(express.static(distPath));
+async function setupFrontend(app: express.Application) {
+  if (process.env.NODE_ENV !== 'production') {
+    const vite = await createViteServer({
+      server: { middlewareMode: true },
+      appType: 'spa',
+    });
+    app.use(vite.middlewares);
+    console.log('Vite middleware enabled');
+  } else {
+    const distPath = path.join(__dirname, '../dist');
+    if (fs.existsSync(distPath)) {
+      app.use(express.static(distPath));
+      app.get('*', (req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
+  }
+}
 
-// Agar React Router (SPA) berjalan lancar, arahkan semua request non-API ke index.html
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'));
-});
-
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+setupFrontend(app).then(() => {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
 });

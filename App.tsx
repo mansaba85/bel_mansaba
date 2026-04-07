@@ -132,16 +132,7 @@ const App: React.FC = () => {
 
     // Auto-save logic
     useEffect(() => {
-        if (!isDataLoaded || isLoading) return;
-        
-        // Skip the very first run after data is loaded to prevent overwriting with the same data
-        if (isFirstLoad.current) {
-            isFirstLoad.current = false;
-            return;
-        }
-
-        // Mark as having unsaved changes whenever these change
-        setHasUnsavedChanges(true);
+        if (!isDataLoaded || isLoading || !hasUnsavedChanges) return;
 
         const saveData = async () => {
             try {
@@ -151,7 +142,7 @@ const App: React.FC = () => {
                     for (const day in schedules[cat]) {
                         schedules[cat][day].forEach(bell => {
                             if (bell.sound) {
-                                console.log(`Bell: ${bell.name}, Sound: ${bell.sound}, SoundName: ${bell.soundName}`);
+                                console.log(`Bell: ${bell.name}, Sound: ${bell.sound.substring(0, 50)}..., SoundName: ${bell.soundName}`);
                             }
                         });
                     }
@@ -175,9 +166,9 @@ const App: React.FC = () => {
             }
         };
 
-        const timeoutId = setTimeout(saveData, 2000); // 2s debounce
+        const timeoutId = setTimeout(saveData, 3000); // 3s debounce
         return () => clearTimeout(timeoutId);
-    }, [schoolName, activeScheduleCategory, schedules, isDataLoaded, isLoading]);
+    }, [schoolName, activeScheduleCategory, schedules, isDataLoaded, isLoading, hasUnsavedChanges]);
 
     // Clock and Bell Ringing Logic
     useEffect(() => {
@@ -242,6 +233,7 @@ const App: React.FC = () => {
                 [day]: (prev[category]?.[day] || []).map(b => b.id === updatedBell.id ? updatedBell : b),
             },
         }));
+        setHasUnsavedChanges(true);
     };
     
     const handleAddBell = (category: string, day: string, newBell: Omit<Bell, 'id'>) => {
@@ -257,6 +249,7 @@ const App: React.FC = () => {
                 },
             };
         });
+        setHasUnsavedChanges(true);
     };
 
     const handleDeleteBell = (category: string, day: string, bellId: string) => {
@@ -267,6 +260,7 @@ const App: React.FC = () => {
                 [day]: (prev[category]?.[day] || []).filter(b => b.id !== bellId),
             },
         }));
+        setHasUnsavedChanges(true);
     };
 
     const handleCopySchedule = (fromDay: string, toDays: string[], category: string) => {
@@ -274,10 +268,15 @@ const App: React.FC = () => {
         setSchedules(prev => {
             const newSchedule = { ...prev[category] };
             toDays.forEach(day => {
-                newSchedule[day] = [...sourceSchedule];
+                // Clone objects and give new IDs to avoid duplicates
+                newSchedule[day] = sourceSchedule.map(bell => ({
+                    ...bell,
+                    id: `${bell.id}-copy-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`
+                }));
             });
             return { ...prev, [category]: newSchedule };
         });
+        setHasUnsavedChanges(true);
     };
 
     const handleAddCategory = (newCategoryName: string) => {
@@ -289,6 +288,7 @@ const App: React.FC = () => {
         DAYS_OF_WEEK.forEach(day => { newEmptySchedule[day] = []; });
         
         setSchedules(prev => ({...prev, [newCategoryName]: newEmptySchedule }));
+        setHasUnsavedChanges(true);
         
         Swal.fire({ title: 'Sukses', text: `Kategori "${newCategoryName}" berhasil ditambahkan.`, icon: 'success', confirmButtonColor: '#dc2626'});
     };
@@ -324,9 +324,19 @@ const App: React.FC = () => {
 
     return (
         <div className="min-h-screen text-slate-800">
+            {isLoading && (
+                <div className="fixed inset-0 z-[200] bg-white/80 backdrop-blur-sm flex flex-col items-center justify-center">
+                    <div className="w-12 h-12 border-4 border-red-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-slate-600 font-bold animate-pulse">Memuat Data Bel...</p>
+                </div>
+            )}
+
             <Header
                 schoolName={schoolName}
-                onSchoolNameChange={setSchoolName}
+                onSchoolNameChange={(name) => {
+                    setSchoolName(name);
+                    setHasUnsavedChanges(true);
+                }}
                 currentTime={currentTime}
                 isAdmin={isAdmin}
                 onAdminLogin={handleAdminLogin}

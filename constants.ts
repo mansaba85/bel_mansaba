@@ -1,7 +1,7 @@
 import { Bell } from './types';
 
-export const API_URL = import.meta.env.VITE_API_URL || 'https://bel.manubanyuputih.id/api';
-export const BASE_URL = API_URL.replace('/api', '');
+export const API_URL = '/api';
+export const BASE_URL = '';
 
 export const getAudioUrl = (sound: string | undefined): string | null => {
     if (!sound) return null;
