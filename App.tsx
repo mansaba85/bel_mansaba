@@ -31,7 +31,12 @@ const App: React.FC = () => {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch(`${API_URL}/data`);
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+
+                const response = await fetch(`${API_URL}/data`, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
                 if (response.ok) {
                     const data = await response.json();
                     setSchoolName(data.schoolName);
@@ -44,10 +49,21 @@ const App: React.FC = () => {
                     } else if (categories.length > 0) {
                         setActiveScheduleCategory(categories[0]);
                     }
+                } else {
+                    throw new Error(`Server merespon dengan status: ${response.status}`);
                 }
             } catch (error) {
-                console.error('Failed to fetch from backend, using local defaults:', error);
+                console.error('Failed to fetch from backend:', error);
                 setIsConnected(false);
+                
+                // Show error to user
+                Swal.fire({
+                    title: 'Koneksi Gagal',
+                    text: 'Gagal terhubung ke server backend. Aplikasi berjalan dalam mode offline.',
+                    icon: 'warning',
+                    confirmButtonColor: '#dc2626'
+                });
+
                 // Fallback to localStorage if backend fails
                 const savedSchool = getFromLocalStorage('schoolName', 'MA NU 01 Banyuputih');
                 const savedSchedules = getFromLocalStorage('schedules', DEFAULT_SCHEDULES_DATA);
