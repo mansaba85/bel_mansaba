@@ -30,10 +30,10 @@ Buka menu **Website** -> Klik pada domain `bel.manubanyuputih.id`:
 - *Sekarang, ketika Anda mengakses domain, tampilan frontend akan muncul.*
 
 ### B. Tambahkan Reverse Proxy (Untuk API)
-Agar frontend bisa berkomunikasi dengan backend, kita perlu mem-proxy request ke port `3000`.
+Agar frontend bisa berkomunikasi dengan backend, kita perlu mem-proxy request `/api` ke port `5002`.
 - Klik tab **Reverse Proxy** -> **Add Reverse Proxy**.
 - **Proxy Name:** `api-proxy`
-- **Target URL:** `http://127.0.0.1:3000` (Sesuaikan dengan port yang Anda gunakan di Node.js Manager)
+- **Target URL:** `http://127.0.0.1:5002`
 - **Sent Domain:** `$host`
 - Klik **Confirm**.
 

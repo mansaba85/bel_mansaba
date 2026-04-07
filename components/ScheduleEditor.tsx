@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { Bell, SchedulesData } from '../types';
-import { DAYS_OF_WEEK, API_URL, BASE_URL, getAudioUrl } from '../constants';
+import { DAYS_OF_WEEK } from '../constants';
 
 declare const Swal: any;
 
@@ -27,24 +27,6 @@ const fileToBase64 = (file: File): Promise<string> => {
     });
 };
 
-const uploadAudio = async (file: File): Promise<{ url: string, filename: string }> => {
-    const formData = new FormData();
-    formData.append('audio', file);
-    
-    const response = await fetch(`${API_URL}/upload-audio`, {
-        method: 'POST',
-        body: formData,
-    });
-    
-    if (!response.ok) {
-        throw new Error('Gagal mengunggah file audio');
-    }
-    
-    const result = await response.json();
-    console.log('Upload result:', result);
-    return result;
-};
-
 const EditBellModal: React.FC<{
     bell: Bell;
     isOpen: boolean;
@@ -65,25 +47,15 @@ const EditBellModal: React.FC<{
     const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-            if (file.size > 5 * 1024 * 1024) {
-                Swal.fire({ title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 5MB.', icon: 'error', confirmButtonColor: '#dc2626' });
+            if (file.size > 2 * 1024 * 1024) {
+                Swal.fire({ title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 2MB.', icon: 'error', confirmButtonColor: '#dc2626' });
                 return;
             }
             try {
-                Swal.fire({
-                    title: 'Mengunggah...',
-                    text: 'Mohon tunggu sebentar',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                const result = await uploadAudio(file);
-                setEditState({ ...editState, sound: result.url, soundName: result.filename });
-                Swal.close();
+                const base64 = await fileToBase64(file);
+                setEditState({ ...editState, sound: base64, soundName: file.name });
             } catch (error) {
-                Swal.fire({ title: 'Gagal', text: 'Gagal mengunggah file audio.', icon: 'error', confirmButtonColor: '#dc2626' });
+                Swal.fire({ title: 'Gagal', text: 'Gagal memproses file audio.', icon: 'error', confirmButtonColor: '#dc2626' });
             }
         }
     };
@@ -200,11 +172,10 @@ const BellRow: React.FC<{
     };
 
     const handlePlaySound = () => {
-        const audioUrl = getAudioUrl(bell.sound);
-        if (!audioUrl) return;
+        if (!bell.sound) return;
         if (audioRef.current) handleStopSound();
 
-        const audio = new Audio(audioUrl);
+        const audio = new Audio(bell.sound);
         audioRef.current = audio;
         setIsPlaying(true);
         audio.onended = () => { setIsPlaying(false); audioRef.current = null; };
@@ -338,26 +309,16 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
     const handleNewFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (file) {
-             if (file.size > 5 * 1024 * 1024) {
-                Swal.fire({title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 5MB.', icon: 'error', confirmButtonColor: '#dc2626'});
+             if (file.size > 2 * 1024 * 1024) {
+                Swal.fire({title: 'Gagal', text: 'Ukuran file tidak boleh melebihi 2MB.', icon: 'error', confirmButtonColor: '#dc2626'});
                 return;
             }
             try {
-                Swal.fire({
-                    title: 'Mengunggah...',
-                    text: 'Mohon tunggu sebentar',
-                    allowOutsideClick: false,
-                    didOpen: () => {
-                        Swal.showLoading();
-                    }
-                });
-                
-                const result = await uploadAudio(file);
-                setNewBellSound(result.url);
-                setNewBellSoundName(result.filename);
-                Swal.close();
+                const base64 = await fileToBase64(file);
+                setNewBellSound(base64);
+                setNewBellSoundName(file.name);
             } catch (error) {
-                Swal.fire({title: 'Gagal', text: 'Gagal mengunggah file audio.', icon: 'error', confirmButtonColor: '#dc2626'});
+                Swal.fire({title: 'Gagal', text: 'Gagal memproses file audio.', icon: 'error', confirmButtonColor: '#dc2626'});
             }
         }
     };
@@ -451,11 +412,7 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                             onChange={e => setPendingCategory(e.target.value)}
                             className={`form-input w-full sm:min-w-[200px] font-bold transition-all ${isCategoryChanged ? 'border-amber-400 ring-2 ring-amber-100' : 'border-slate-300'}`}
                         >
-                            {scheduleCategories.length > 0 ? (
-                                scheduleCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)
-                            ) : (
-                                <option value="">Tidak ada kategori</option>
-                            )}
+                            {scheduleCategories.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                         </select>
                         {!isCategoryChanged && (
                             <div className="absolute -right-2 -top-2 bg-green-500 text-white w-5 h-5 rounded-full flex items-center justify-center border-2 border-white shadow-sm scale-100 transition-transform">
