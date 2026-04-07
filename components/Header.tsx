@@ -9,6 +9,8 @@ interface HeaderProps {
     isAdmin: boolean;
     onAdminLogin: (password: string) => boolean;
     onAdminLogout: () => void;
+    isConnected: boolean;
+    onSync: () => void;
 }
 
 const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
@@ -42,7 +44,7 @@ const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
     );
 };
 
-export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, currentTime, isAdmin, onAdminLogin, onAdminLogout }) => {
+export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, currentTime, isAdmin, onAdminLogin, onAdminLogout, isConnected, onSync }) => {
     
     const showLoginModal = async () => {
         await Swal.fire({
@@ -76,17 +78,36 @@ export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, 
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center gap-4">
                 <div className="flex items-center space-x-4 flex-grow min-w-0">
                     <i className="fa-solid fa-bell text-3xl text-red-600 flex-shrink-0"></i>
-                    <input
-                        type="text"
-                        value={schoolName}
-                        onChange={(e) => onSchoolNameChange(e.target.value)}
-                        className={`text-xl sm:text-2xl font-bold text-slate-800 bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full truncate placeholder:text-slate-400 ${!isAdmin && 'cursor-default'}`}
-                        aria-label="School Name"
-                        placeholder="Nama Sekolah Anda"
-                        readOnly={!isAdmin}
-                    />
+                    <div className="flex flex-col min-w-0">
+                        <input
+                            type="text"
+                            value={schoolName}
+                            onChange={(e) => onSchoolNameChange(e.target.value)}
+                            className={`text-xl sm:text-2xl font-bold text-slate-800 bg-transparent border-none p-0 focus:outline-none focus:ring-0 w-full truncate placeholder:text-slate-400 ${!isAdmin && 'cursor-default'}`}
+                            aria-label="School Name"
+                            placeholder="Nama Sekolah Anda"
+                            readOnly={!isAdmin}
+                        />
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)] animate-pulse'}`}></div>
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isConnected ? 'text-green-600' : 'text-red-600'}`}>
+                                {isConnected ? 'Terhubung ke Database' : 'Mode Offline (Gagal Terhubung)'}
+                            </span>
+                        </div>
+                    </div>
                 </div>
                 <div className="flex items-center space-x-4 sm:space-x-6">
+                    {isAdmin && (
+                        <button
+                            onClick={onSync}
+                            className="flex items-center space-x-2 px-3 py-2 bg-amber-50 text-amber-600 font-semibold rounded-lg hover:bg-amber-100 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-amber-500 transition-colors text-sm"
+                            aria-label="Sync Data"
+                            title="Bersihkan Cache & Sinkronisasi"
+                        >
+                            <i className="fa-solid fa-sync h-5 w-5"></i>
+                            <span className="hidden lg:inline">Sync Data</span>
+                        </button>
+                    )}
                     {isAdmin ? (
                         <button
                             onClick={onAdminLogout}
