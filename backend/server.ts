@@ -126,10 +126,10 @@ const initDb = async () => {
     await sequelize.authenticate();
     console.log('Database connected.');
     
-    // Force sync once to fix the 'db_id' column issue
-    // This will recreate the tables with the correct schema
-    await sequelize.sync({ force: true });
-    console.log('Database tables recreated.');
+    // Use alter: true to keep data while updating schema
+    // We used force: true once to fix the primary key issue
+    await sequelize.sync({ alter: true });
+    console.log('Database synchronized.');
 
     // Check if data exists, if not populate
     const categoryCount = await Category.count();
@@ -238,6 +238,10 @@ app.post('/api/save', async (req, res) => {
           if (!schedules[category][day]) continue;
           for (const bell of schedules[category][day]) {
             if (!bell || !bell.id) continue;
+            
+            // LOG EACH BELL BEING SAVED
+            console.log(`DB SAVE - Cat: ${category}, Day: ${day}, Name: ${bell.name}, SoundName: ${bell.soundName}`);
+            
             await Bell.create({
               id: bell.id,
               name: bell.name || 'Bel Tanpa Nama',

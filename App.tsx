@@ -21,12 +21,13 @@ console.log('Connecting to API:', API_URL);
 
 const App: React.FC = () => {
     const [schoolName, setSchoolName] = useState<string>('MA NU 01 Banyuputih');
-    const [schedules, setSchedules] = useState<SchedulesData>(DEFAULT_SCHEDULES_DATA);
-    const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>(Object.keys(DEFAULT_SCHEDULES_DATA)[0]);
+    const [schedules, setSchedules] = useState<SchedulesData>({});
+    const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
     const [isDataLoaded, setIsDataLoaded] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+    const isFirstLoad = useRef(true);
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);
 
@@ -52,6 +53,7 @@ const App: React.FC = () => {
                     } else {
                         console.log('No schedules in backend, using defaults');
                         setSchedules(DEFAULT_SCHEDULES_DATA);
+                        cleanedSchedules['Jadwal Normal'] = DEFAULT_SCHEDULES_DATA['Jadwal Normal'];
                     }
 
                     setSchoolName(data.schoolName || 'MA NU 01 Banyuputih');
@@ -132,11 +134,29 @@ const App: React.FC = () => {
     useEffect(() => {
         if (!isDataLoaded || isLoading) return;
         
+        // Skip the very first run after data is loaded to prevent overwriting with the same data
+        if (isFirstLoad.current) {
+            isFirstLoad.current = false;
+            return;
+        }
+
         // Mark as having unsaved changes whenever these change
         setHasUnsavedChanges(true);
 
         const saveData = async () => {
             try {
+                // Log data before sending to see if soundName is present
+                console.log('--- AUTO-SAVE START ---');
+                for (const cat in schedules) {
+                    for (const day in schedules[cat]) {
+                        schedules[cat][day].forEach(bell => {
+                            if (bell.sound) {
+                                console.log(`Bell: ${bell.name}, Sound: ${bell.sound}, SoundName: ${bell.soundName}`);
+                            }
+                        });
+                    }
+                }
+
                 const response = await fetch(`${API_URL}/save`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -339,19 +359,25 @@ const App: React.FC = () => {
             )}
 
             <main className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto">
-                <ScheduleEditor
-                    schedules={schedules}
-                    activeScheduleCategory={activeScheduleCategory}
-                    setActiveScheduleCategory={setActiveScheduleCategory}
-                    scheduleCategories={scheduleCategories}
-                    onUpdateBell={handleUpdateBell}
-                    onAddBell={handleAddBell}
-                    onDeleteBell={handleDeleteBell}
-                    onCopySchedule={handleCopySchedule}
-                    onAddCategory={handleAddCategory}
-                    currentTime={currentTime}
-                    isAdmin={isAdmin}
-                />
+                {isDataLoaded && activeScheduleCategory ? (
+                    <ScheduleEditor
+                        schedules={schedules}
+                        activeScheduleCategory={activeScheduleCategory}
+                        setActiveScheduleCategory={setActiveScheduleCategory}
+                        scheduleCategories={scheduleCategories}
+                        onUpdateBell={handleUpdateBell}
+                        onAddBell={handleAddBell}
+                        onDeleteBell={handleDeleteBell}
+                        onCopySchedule={handleCopySchedule}
+                        onAddCategory={handleAddCategory}
+                        currentTime={currentTime}
+                        isAdmin={isAdmin}
+                    />
+                ) : (
+                    <div className="flex items-center justify-center h-64">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-600"></div>
+                    </div>
+                )}
             </main>
         </div>
     );
