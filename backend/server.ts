@@ -1,0 +1,175 @@
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import { Sequelize, DataTypes, Model } from 'sequelize';
+
+dotenv.config();
+
+const app = express();
+const PORT = process.env.PORT || 5002;
+
+app.use(cors());
+app.use(express.json({ limit: '50mb' })); // Allow large base64 audio data
+
+// Database setup
+const sequelize = new Sequelize(
+  process.env.DB_NAME || 'school_bell',
+  process.env.DB_USER || 'root',
+  process.env.DB_PASSWORD || '',
+  {
+    host: process.env.DB_HOST || 'localhost',
+    dialect: 'mysql',
+    logging: false,
+  }
+);
+
+// Models
+class Setting extends Model {
+  public key!: string;
+  public value!: string;
+}
+Setting.init(
+  {
+    key: { type: DataTypes.STRING, primaryKey: true },
+    value: { type: DataTypes.TEXT },
+  },
+  { sequelize, modelName: 'Setting' }
+);
+
+class Bell extends Model {
+  public id!: string;
+  public category!: string;
+  public day!: string;
+  public name!: string;
+  public time!: string;
+  public sound!: string;
+  public soundName!: string;
+}
+Bell.init(
+  {
+    id: { type: DataTypes.STRING, primaryKey: true },
+    category: { type: DataTypes.STRING },
+    day: { type: DataTypes.STRING },
+    name: { type: DataTypes.STRING },
+    time: { type: DataTypes.STRING },
+    sound: { type: DataTypes.TEXT('long') },
+    soundName: { type: DataTypes.STRING },
+  },
+  { sequelize, modelName: 'Bell' }
+);
+
+// Initial Data
+const DEFAULT_SCHEDULES_DATA: any = {
+  "Jadwal Normal": {
+    "Senin": [
+      { id: "s1", name: "Upacara Bendera", time: "07:00", sound: "", soundName: "Tidak ada suara" },
+      { id: "s2", name: "Jam Pelajaran 1", time: "07:30", sound: "", soundName: "Tidak ada suara" },
+      { id: "s3", name: "Istirahat Pertama", time: "09:30", sound: "", soundName: "Tidak ada suara" },
+      { id: "s4", name: "Jam Pelajaran 3", time: "10:00", sound: "", soundName: "Tidak ada suara" },
+      { id: "s5", name: "Pulang Sekolah", time: "13:00", sound: "", soundName: "Tidak ada suara" },
+    ],
+    "Selasa": [
+      { id: "t1", name: "Masuk", time: "07:00", sound: "", soundName: "Tidak ada suara" },
+      { id: "t2", name: "Pembacaan Al Quran", time: "07:05", sound: "", soundName: "Tidak ada suara" },
+      { id: "t17", name: "Pulang", time: "15:15", sound: "", soundName: "Tidak ada suara" },
+    ],
+    "Rabu": [], "Kamis": [], "Jumat": [], "Sabtu": [], "Minggu": [],
+  }
+};
+
+// Sync and populate
+const initDb = async () => {
+  try {
+    await sequelize.authenticate();
+    console.log('Database connected.');
+    await sequelize.sync({ alter: true });
+
+    // Check if data exists, if not populate
+    const settingCount = await Setting.count();
+    if (settingCount === 0) {
+      await Setting.create({ key: 'schoolName', value: 'MA NU 01 Banyuputih' });
+      await Setting.create({ key: 'activeScheduleCategory', value: 'Jadwal Normal' });
+
+      for (const category in DEFAULT_SCHEDULES_DATA) {
+        for (const day in DEFAULT_SCHEDULES_DATA[category]) {
+          for (const bell of DEFAULT_SCHEDULES_DATA[category][day]) {
+            await Bell.create({
+              ...bell,
+              category,
+              day,
+            });
+          }
+        }
+      }
+      console.log('Default data populated.');
+    }
+  } catch (error) {
+    console.error('Unable to connect to the database:', error);
+  }
+};
+
+initDb();
+
+// API Routes
+app.get('/api/data', async (req, res) => {
+  try {
+    const settings = await Setting.findAll();
+    const bells = await Bell.findAll();
+
+    const schoolName = settings.find(s => s.key === 'schoolName')?.value || 'MA NU 01 Banyuputih';
+    const activeScheduleCategory = settings.find(s => s.key === 'activeScheduleCategory')?.value || '';
+
+    const schedules: any = {};
+    bells.forEach(bell => {
+      if (!schedules[bell.category]) schedules[bell.category] = {};
+      if (!schedules[bell.category][bell.day]) schedules[bell.category][bell.day] = [];
+      schedules[bell.category][bell.day].push({
+        id: bell.id,
+        name: bell.name,
+        time: bell.time,
+        sound: bell.sound,
+        soundName: bell.soundName,
+      });
+    });
+
+    res.json({ schoolName, activeScheduleCategory, schedules });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch data' });
+  }
+});
+
+app.post('/api/save', async (req, res) => {
+  const { schoolName, activeScheduleCategory, schedules } = req.body;
+  try {
+    if (schoolName !== undefined) {
+      await Setting.upsert({ key: 'schoolName', value: schoolName });
+    }
+    if (activeScheduleCategory !== undefined) {
+      await Setting.upsert({ key: 'activeScheduleCategory', value: activeScheduleCategory });
+    }
+    if (schedules !== undefined) {
+      // For simplicity, clear and re-insert bells
+      // In a real app, you'd want a more efficient way
+      await Bell.destroy({ where: {} });
+      for (const category in schedules) {
+        for (const day in schedules[category]) {
+          for (const bell of schedules[category][day]) {
+            await Bell.create({
+              ...bell,
+              category,
+              day,
+            });
+          }
+        }
+      }
+    }
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to save data' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});

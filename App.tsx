@@ -17,34 +17,79 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
     }
 };
 
+// API Base URL - Change this to your aaPanel backend URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5002/api';
+
 const App: React.FC = () => {
-    const [schoolName, setSchoolName] = useState<string>(() => getFromLocalStorage('schoolName', 'MA NU 01 Banyuputih'));
-    const [schedules, setSchedules] = useState<SchedulesData>(() => getFromLocalStorage('schedules', DEFAULT_SCHEDULES_DATA));
+    const [schoolName, setSchoolName] = useState<string>('MA NU 01 Banyuputih');
+    const [schedules, setSchedules] = useState<SchedulesData>(DEFAULT_SCHEDULES_DATA);
+    const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>('');
+    const [isLoading, setIsLoading] = useState(true);
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);
 
-    const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>(() => {
-        const savedCategory = getFromLocalStorage('activeScheduleCategory', scheduleCategories[0]);
-        // Ensure the saved category still exists in the available categories
-        return scheduleCategories.includes(savedCategory) ? savedCategory : scheduleCategories[0];
-    });
-    
+    // Fetch data from backend
+    useEffect(() => {
+        const fetchData = async () => {
+            try {
+                const response = await fetch(`${API_URL}/data`);
+                if (response.ok) {
+                    const data = await response.json();
+                    setSchoolName(data.schoolName);
+                    setSchedules(data.schedules);
+                    
+                    const categories = Object.keys(data.schedules);
+                    if (data.activeScheduleCategory && categories.includes(data.activeScheduleCategory)) {
+                        setActiveScheduleCategory(data.activeScheduleCategory);
+                    } else if (categories.length > 0) {
+                        setActiveScheduleCategory(categories[0]);
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to fetch from backend, using local defaults:', error);
+                // Fallback to localStorage if backend fails
+                const savedSchool = getFromLocalStorage('schoolName', 'MA NU 01 Banyuputih');
+                const savedSchedules = getFromLocalStorage('schedules', DEFAULT_SCHEDULES_DATA);
+                setSchoolName(savedSchool);
+                setSchedules(savedSchedules);
+                
+                const categories = Object.keys(savedSchedules);
+                const savedCategory = getFromLocalStorage('activeScheduleCategory', categories[0]);
+                setActiveScheduleCategory(categories.includes(savedCategory) ? savedCategory : categories[0]);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        fetchData();
+    }, []);
+
     const [currentTime, setCurrentTime] = useState(new Date());
     const [lastPlayedTime, setLastPlayedTime] = useState<string>('');
     const [isAdmin, setIsAdmin] = useState<boolean>(false);
 
-    // Save to localStorage whenever state changes
+    // Save to backend whenever state changes (with a small delay to avoid too many requests)
     useEffect(() => {
-        window.localStorage.setItem('schoolName', JSON.stringify(schoolName));
-    }, [schoolName]);
+        if (isLoading) return;
 
-    useEffect(() => {
-        window.localStorage.setItem('schedules', JSON.stringify(schedules));
-    }, [schedules]);
+        const saveData = async () => {
+            try {
+                await fetch(`${API_URL}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ schoolName, activeScheduleCategory, schedules }),
+                });
+                // Also save to localStorage as backup
+                window.localStorage.setItem('schoolName', JSON.stringify(schoolName));
+                window.localStorage.setItem('schedules', JSON.stringify(schedules));
+                window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
+            } catch (error) {
+                console.error('Failed to save to backend:', error);
+            }
+        };
 
-    useEffect(() => {
-        window.localStorage.setItem('activeScheduleCategory', JSON.stringify(activeScheduleCategory));
-    }, [activeScheduleCategory]);
+        const timeoutId = setTimeout(saveData, 1000);
+        return () => clearTimeout(timeoutId);
+    }, [schoolName, activeScheduleCategory, schedules, isLoading]);
 
     // Clock and Bell Ringing Logic
     useEffect(() => {
@@ -176,6 +221,17 @@ const App: React.FC = () => {
         const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
         Toast.fire({ icon: 'info', title: 'Anda telah logout.' });
     };
+
+    if (isLoading) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-slate-100">
+                <div className="text-center">
+                    <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-600 mb-4"></div>
+                    <p className="text-slate-600 font-medium">Memuat data...</p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen text-slate-800">
