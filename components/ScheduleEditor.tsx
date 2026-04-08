@@ -173,7 +173,8 @@ const BellRow: React.FC<{
     isAdmin: boolean;
     isSelected: boolean;
     onSelect: (id: string) => void;
-}> = ({ bell, onEdit, onDelete, isAdmin, isSelected, onSelect }) => {
+    isPassed: boolean;
+}> = ({ bell, onEdit, onDelete, isAdmin, isSelected, onSelect, isPassed }) => {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -228,7 +229,7 @@ const BellRow: React.FC<{
     };
 
     return (
-        <div className={`grid ${isAdmin ? 'grid-cols-[0.3fr_2fr_0.8fr_1.5fr_0.5fr_1fr]' : 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr]'} gap-4 items-center px-3 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80 rounded-lg transition-colors ${isSelected ? 'bg-red-50/50' : ''}`}>
+        <div className={`grid ${isAdmin ? 'grid-cols-[0.3fr_2fr_0.8fr_1.5fr_0.5fr_1fr]' : 'grid-cols-[2fr_0.8fr_1.5fr_0.5fr]'} gap-4 items-center px-3 py-3 border-b border-slate-100 last:border-b-0 hover:bg-slate-50/80 rounded-lg transition-colors ${isSelected ? 'bg-red-50/50' : ''} ${isPassed ? 'opacity-60 bg-slate-50/30' : ''}`}>
             {isAdmin && (
                 <div className="flex justify-center">
                     <input 
@@ -239,15 +240,24 @@ const BellRow: React.FC<{
                     />
                 </div>
             )}
-            <span className="font-semibold text-slate-800 truncate">{bell.name}</span>
-            <span className="font-mono text-slate-600 text-sm bg-slate-100 px-2 py-0.5 rounded flex justify-center">{bell.time}</span>
-            <span className="text-slate-500 text-xs truncate italic">{bell.soundName || 'Hening'}</span>
+            <div className="flex items-center gap-2 min-w-0">
+                {isPassed && <i className="fa-solid fa-circle-check text-green-500 text-[10px] flex-shrink-0"></i>}
+                <span className={`font-semibold truncate ${isPassed ? 'text-slate-400 line-through decoration-slate-300' : 'text-slate-800'}`}>
+                    {bell.name}
+                </span>
+            </div>
+            <span className={`font-mono text-sm bg-slate-100 px-2 py-0.5 rounded flex justify-center ${isPassed ? 'text-slate-400 bg-slate-50' : 'text-slate-600'}`}>
+                {bell.time}
+            </span>
+            <span className={`text-xs truncate italic ${isPassed ? 'text-slate-300' : 'text-slate-500'}`}>
+                {bell.soundName || 'Hening'}
+            </span>
             <div className="flex justify-center">
                 {bell.sound && (
                      <button 
                         onClick={isPlaying ? handleStopSound : handlePlaySound}
                         className={`p-2 w-8 h-8 flex items-center justify-center rounded-full transition shadow-sm
-                            ${isPlaying ? 'bg-red-500 text-white' : 'bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600'}`}
+                            ${isPlaying ? 'bg-red-500 text-white' : isPassed ? 'bg-slate-100 text-slate-400' : 'bg-slate-200 text-slate-600 hover:bg-red-100 hover:text-red-600'}`}
                     >
                         <i className={`fa-solid ${isPlaying ? 'fa-stop' : 'fa-play'} text-[10px]`}></i>
                     </button>
@@ -275,9 +285,15 @@ const BellTable: React.FC<{
     selectedIds: string[];
     onSelectBell: (id: string) => void;
     onSelectAll: (ids: string[]) => void;
-}> = ({ bells, onEditBell, onDelete, isAdmin, selectedIds, onSelectBell, onSelectAll }) => {
+    currentTime: Date;
+    selectedDay: string;
+}> = ({ bells, onEditBell, onDelete, isAdmin, selectedIds, onSelectBell, onSelectAll, currentTime, selectedDay }) => {
     const allIds = bells.map(b => b.id);
     const isAllSelected = allIds.length > 0 && allIds.every(id => selectedIds.includes(id));
+
+    const todayName = currentTime.toLocaleDateString('id-ID', { weekday: 'long' });
+    const isToday = selectedDay === todayName;
+    const nowTimeStr = currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
 
     return (
         <div className="space-y-1">
@@ -307,6 +323,7 @@ const BellTable: React.FC<{
                     isAdmin={isAdmin}
                     isSelected={selectedIds.includes(bell.id)}
                     onSelect={onSelectBell}
+                    isPassed={isToday && bell.time < nowTimeStr}
                 />
             ))}
         </div>
@@ -667,6 +684,8 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                                     selectedIds={selectedBellIds}
                                     onSelectBell={handleSelectBell}
                                     onSelectAll={handleSelectAll}
+                                    currentTime={currentTime}
+                                    selectedDay={selectedDay}
                                 />
                             </div>
                             <div>
@@ -679,6 +698,8 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                                         selectedIds={selectedBellIds}
                                         onSelectBell={handleSelectBell}
                                         onSelectAll={handleSelectAll}
+                                        currentTime={currentTime}
+                                        selectedDay={selectedDay}
                                     />
                                 )}
                             </div>
