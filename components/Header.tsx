@@ -17,26 +17,24 @@ interface HeaderProps {
 
 const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
     const formatTime = (date: Date) => {
-        return date.toLocaleTimeString('id-ID', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: false
-        }).replace(/\./g, ':');
+        const h = date.getHours().toString().padStart(2, '0');
+        const m = date.getMinutes().toString().padStart(2, '0');
+        const s = date.getSeconds().toString().padStart(2, '0');
+        return `${h}:${m}:${s}`;
     };
     
     const formatDate = (date: Date) => {
         return date.toLocaleDateString('id-ID', {
             weekday: 'long',
-            year: 'numeric',
+            day: 'numeric',
             month: 'long',
-            day: 'numeric'
+            year: 'numeric'
         });
     }
 
     return (
         <div className="text-right flex-shrink-0">
-            <div className="text-3xl sm:text-4xl font-mono font-bold text-slate-800 tracking-wider">
+            <div className="text-3xl sm:text-4xl font-mono font-bold text-slate-800">
                 {formatTime(currentTime)}
             </div>
             <div className="text-sm text-slate-500 mt-1">
@@ -52,7 +50,7 @@ export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, 
         await Swal.fire({
             title: 'Akses Pengaturan Admin',
             html: `
-                <input id="swal-input-password" type="password" class="swal2-input" placeholder="Password" value="admin123">
+                <input id="swal-input-password" type="password" class="swal2-input" placeholder="Password">
             `,
             focusConfirm: false,
             showCancelButton: true,

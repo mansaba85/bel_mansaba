@@ -38,6 +38,16 @@ const EditBellModal: React.FC<{
     const [editState, setEditState] = useState<Bell>(bell);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
+    const handleTimeInputChange = (value: string, setter: (val: string) => void) => {
+        let cleaned = value.replace(/[^0-9]/g, '');
+        if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
+        let formatted = cleaned;
+        if (cleaned.length >= 3) {
+            formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2);
+        }
+        setter(formatted);
+    };
+
     useEffect(() => {
         if (isOpen) {
             setEditState(bell);
@@ -117,10 +127,12 @@ const EditBellModal: React.FC<{
                                 <i className="fa-solid fa-clock text-slate-400"></i>
                             </div>
                             <input 
-                                type="time" 
+                                type="text" 
                                 value={editState.time} 
-                                onChange={e => setEditState({...editState, time: e.target.value})} 
+                                onChange={e => handleTimeInputChange(e.target.value, (val) => setEditState({...editState, time: val}))} 
                                 className="form-input pl-10 h-11" 
+                                placeholder="HH:mm (Contoh: 07:00 atau 14:30)"
+                                maxLength={5}
                             />
                         </div>
                     </div>
@@ -293,7 +305,9 @@ const BellTable: React.FC<{
 
     const todayName = currentTime.toLocaleDateString('id-ID', { weekday: 'long' });
     const isToday = selectedDay === todayName;
-    const nowTimeStr = currentTime.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', hour12: false }).replace(/\./g, ':');
+    const nowH = currentTime.getHours().toString().padStart(2, '0');
+    const nowM = currentTime.getMinutes().toString().padStart(2, '0');
+    const nowTimeStr = `${nowH}:${nowM}`;
 
     return (
         <div className="space-y-1">
@@ -413,6 +427,16 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
 
     const [isSaving, setIsSaving] = useState(false);
     const [isSyncing, setIsSyncing] = useState(false);
+
+    const handleTimeInputChange = (value: string, setter: (val: string) => void) => {
+        let cleaned = value.replace(/[^0-9]/g, '');
+        if (cleaned.length > 4) cleaned = cleaned.slice(0, 4);
+        let formatted = cleaned;
+        if (cleaned.length >= 3) {
+            formatted = cleaned.slice(0, 2) + ':' + cleaned.slice(2);
+        }
+        setter(formatted);
+    };
 
     const handleSync = async () => {
         setIsSyncing(true);
@@ -756,7 +780,15 @@ export const ScheduleEditor: React.FC<ScheduleEditorProps> = ({
                                         <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none">
                                             <i className="fa-solid fa-clock text-slate-300"></i>
                                         </div>
-                                        <input type="time" value={newBellTime} onChange={e => setNewBellTime(e.target.value)} required className="form-input pl-10"/>
+                                        <input 
+                                            type="text" 
+                                            value={newBellTime} 
+                                            onChange={e => handleTimeInputChange(e.target.value, setNewBellTime)} 
+                                            required 
+                                            className="form-input pl-10"
+                                            placeholder="HH:mm (Contoh: 07:00)"
+                                            maxLength={5}
+                                        />
                                     </div>
                                 </div>
                                 <div className="md:col-span-4">
