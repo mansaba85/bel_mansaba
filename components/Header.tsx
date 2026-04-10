@@ -50,8 +50,26 @@ export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, 
         await Swal.fire({
             title: 'Akses Pengaturan Admin',
             html: `
-                <input id="swal-input-password" type="password" class="swal2-input" placeholder="Password">
+                <div style="position: relative; width: 100%; max-width: 260px; margin: 0 auto;">
+                    <input id="swal-input-password" type="password" class="swal2-input" placeholder="Password" style="width: 100%; margin: 0; padding-right: 40px;">
+                    <button type="button" id="toggle-password" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; cursor: pointer; color: #64748b; padding: 5px; display: flex; align-items: center; justify-content: center;">
+                        <i class="fa-solid fa-eye" id="eye-icon"></i>
+                    </button>
+                </div>
             `,
+            didOpen: () => {
+                const toggleBtn = document.getElementById('toggle-password');
+                const passwordInput = document.getElementById('swal-input-password') as HTMLInputElement;
+                const eyeIcon = document.getElementById('eye-icon');
+                
+                if (toggleBtn && passwordInput && eyeIcon) {
+                    toggleBtn.addEventListener('click', () => {
+                        const isPassword = passwordInput.type === 'password';
+                        passwordInput.type = isPassword ? 'text' : 'password';
+                        eyeIcon.className = isPassword ? 'fa-solid fa-eye-slash' : 'fa-solid fa-eye';
+                    });
+                }
+            },
             focusConfirm: false,
             showCancelButton: true,
             confirmButtonText: 'Buka Akses',
