@@ -13,6 +13,8 @@ interface HeaderProps {
     onSync: () => void;
     view: 'dashboard' | 'settings';
     onViewChange: (view: 'dashboard' | 'settings') => void;
+    isAudioUnlocked: boolean;
+    onUnlockAudio: () => void;
 }
 
 const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
@@ -44,7 +46,20 @@ const Clock: React.FC<{ currentTime: Date }> = ({ currentTime }) => {
     );
 };
 
-export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, currentTime, isAdmin, onAdminLogin, onAdminLogout, isConnected, onSync, view, onViewChange }) => {
+export const Header: React.FC<HeaderProps> = ({ 
+    schoolName, 
+    onSchoolNameChange, 
+    currentTime, 
+    isAdmin, 
+    onAdminLogin, 
+    onAdminLogout, 
+    isConnected, 
+    onSync, 
+    view, 
+    onViewChange,
+    isAudioUnlocked,
+    onUnlockAudio
+}) => {
     
     const showLoginModal = async () => {
         await Swal.fire({
@@ -115,6 +130,14 @@ export const Header: React.FC<HeaderProps> = ({ schoolName, onSchoolNameChange, 
                     </div>
                 </div>
                 <div className="flex items-center space-x-4 sm:space-x-6">
+                    <button
+                        onClick={onUnlockAudio}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg font-bold text-xs transition-all ${isAudioUnlocked ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600 animate-pulse'}`}
+                        title={isAudioUnlocked ? "Suara Aktif" : "Klik untuk Aktifkan Suara"}
+                    >
+                        <i className={`fa-solid ${isAudioUnlocked ? 'fa-volume-high' : 'fa-volume-xmark'}`}></i>
+                        <span className="hidden md:inline">{isAudioUnlocked ? 'SUARA AKTIF' : 'SUARA MATI'}</span>
+                    </button>
                     {isAdmin && (
                         <div className="flex items-center space-x-2">
                             <button
