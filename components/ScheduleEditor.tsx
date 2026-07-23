@@ -212,10 +212,13 @@ const BellRow: React.FC<{
         if (!bell.sound) return;
         if (audioRef.current) handleStopSound();
 
-        // If it's a relative path, prepend the backend domain (without /api)
-        const soundUrl = bell.sound.startsWith('data:') 
-            ? bell.sound 
-            : `https://bel.manubanyuputih.id${bell.sound}`;
+        let soundUrl = bell.sound;
+        if (!soundUrl.startsWith('data:') && !soundUrl.startsWith('http://') && !soundUrl.startsWith('https://')) {
+            const baseUrl = API_URL.startsWith('http://') || API_URL.startsWith('https://') 
+                ? API_URL.replace(/\/api\/?$/, '') 
+                : window.location.origin;
+            soundUrl = `${baseUrl}${soundUrl.startsWith('/') ? '' : '/'}${soundUrl}`;
+        }
 
         const audio = new Audio(soundUrl);
         audioRef.current = audio;

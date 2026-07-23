@@ -44,6 +44,7 @@ app.use(express.json({ limit: '50mb' }));
 
 // Serve uploads folder
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/api/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Database setup
 const sequelize = new Sequelize(
