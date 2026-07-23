@@ -2,7 +2,7 @@ import { Bell } from './types';
 
 export const DAYS_OF_WEEK = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
 
-export const API_URL = 'https://bel.manubanyuputih.id/api';
+export const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const TUE_WED_THU_SCHEDULE: Bell[] = [
     { id: "t1", name: "Masuk", time: "07:00", sound: "", soundName: "Tidak ada suara" },

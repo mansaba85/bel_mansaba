@@ -20,7 +20,7 @@ const getFromLocalStorage = <T,>(key: string, defaultValue: T): T => {
 
 // App Component
 const App: React.FC = () => {
-    const [schoolName, setSchoolName] = useState<string>('MA NU 01 Banyuputih');
+    const [schoolName, setSchoolName] = useState<string>(import.meta.env.VITE_SCHOOL_NAME || 'MA NU 01 Banyuputih');
     const [schedules, setSchedules] = useState<SchedulesData>(DEFAULT_SCHEDULES_DATA);
     const [activeScheduleCategory, setActiveScheduleCategory] = useState<string>('');
     const [isLoading, setIsLoading] = useState(true);
@@ -104,7 +104,7 @@ const App: React.FC = () => {
                 });
 
                 // Fallback to localStorage if backend fails
-                const savedSchool = getFromLocalStorage('schoolName', 'MA NU 01 Banyuputih');
+                const savedSchool = getFromLocalStorage('schoolName', import.meta.env.VITE_SCHOOL_NAME || 'MA NU 01 Banyuputih');
                 const savedSchedules = getFromLocalStorage('schedules', DEFAULT_SCHEDULES_DATA);
                 setSchoolName(savedSchool);
                 setSchedules(savedSchedules);
@@ -174,10 +174,13 @@ const App: React.FC = () => {
             // Play the sound fully, detached from the notification
             if (bellToRing.sound) {
                 console.log(`Ringing bell: ${bellToRing.name} at ${bellToRing.time}`);
-                // If it's a relative path, prepend the backend domain (without /api)
-                const soundUrl = bellToRing.sound.startsWith('data:') 
-                    ? bellToRing.sound 
-                    : `https://bel.manubanyuputih.id${bellToRing.sound}`;
+                let soundUrl = bellToRing.sound;
+                if (!soundUrl.startsWith('data:') && !soundUrl.startsWith('http://') && !soundUrl.startsWith('https://')) {
+                    const baseUrl = API_URL.startsWith('http://') || API_URL.startsWith('https://') 
+                        ? API_URL.replace(/\/api\/?$/, '') 
+                        : window.location.origin;
+                    soundUrl = `${baseUrl}${soundUrl.startsWith('/') ? '' : '/'}${soundUrl}`;
+                }
                 
                 const audio = new Audio(soundUrl);
                 audio.play().catch(e => console.error("Error playing sound:", e));
