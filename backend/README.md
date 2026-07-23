@@ -10,15 +10,31 @@ npm run build
 ```
 Ini akan menghasilkan folder `dist` di dalam `/www/wwwroot/app/bel/`.
 
-## 2. Setup Backend (Node.js)
-- Pastikan folder `backend` sudah ada di `/www/wwwroot/app/bel/backend`.
+## 2. Setup Backend & Database (MySQL)
+- Buat database MySQL baru di VPS/aaPanel (misalnya bernama `school_bell`).
+- Pastikan folder `backend` sudah ada di server.
 - Jalankan `npm install` di dalam folder `backend`.
-- Buat file `.env` di dalam folder `backend` dengan konfigurasi MySQL Anda.
+- Buat file `.env` di dalam folder `backend` dengan isi:
+  ```env
+  PORT=3000
+  DB_HOST=127.0.0.1
+  DB_PORT=3306
+  DB_USER=username_db_vps_anda
+  DB_PASSWORD=password_db_vps_anda
+  DB_NAME=school_bell
+  NODE_ENV=production
+  ```
 - Di aaPanel, buka menu **Node.js Project** -> **Add Node Project**:
     - **Path:** `/www/wwwroot/app/bel/backend`
     - **Run Command:** `npm run start`
-    - **Port:** `5002`
+    - **Port:** `3000` (atau port pilihan Anda)
     - **Project Name:** `school-bell-backend`
+
+### Solusi Jika Backend Gagal Terhubung ke Database di VPS Baru:
+1. **Database Belum Dibuat**: Buat database `school_bell` terlebih dahulu di MySQL/aaPanel.
+2. **Kredensial `.env` Tidak Sesuai**: Di VPS baru, username & password MySQL berbeda dari VPS sebelumnya. Pastikan `DB_USER` dan `DB_PASSWORD` di file `backend/.env` telah disesuaikan dengan kredensial MySQL VPS baru.
+3. **Password Kosong / Root**: MySQL di Linux/aaPanel melarang login `root` tanpa password via TCP. Selalu buat user & password khusus database tersebut.
+4. **Restart Service Backend**: Setelah membuat/mengubah file `backend/.env`, restart service Node.js di PM2 / aaPanel Node.js Project manager.
 
 ## 3. Konfigurasi Website di aaPanel
 Buka menu **Website** -> Klik pada domain `bel.manubanyuputih.id`:
