@@ -26,7 +26,7 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(true);
     const [isConnected, setIsConnected] = useState(false);
     const [view, setView] = useState<'dashboard' | 'settings'>('dashboard');
-    const [isAudioUnlocked, setIsAudioUnlocked] = useState(false);
+    const [isAudioUnlocked, setIsAudioUnlocked] = useState(true);
     
     const scheduleCategories = useMemo(() => Object.keys(schedules), [schedules]);
 
@@ -35,11 +35,33 @@ const App: React.FC = () => {
         const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
         audio.play().then(() => {
             setIsAudioUnlocked(true);
-            const Toast = Swal.mixin({ toast: true, position: 'top-end', showConfirmButton: false, timer: 3000 });
-            Toast.fire({ icon: 'success', title: 'Suara bel aktif' });
         }).catch(e => {
             console.error("Gagal mengaktifkan suara:", e);
         });
+    }, []);
+
+    // Silently unlock audio on first click/tap/keydown anywhere on the page
+    useEffect(() => {
+        const handleFirstInteraction = () => {
+            const audio = new Audio('data:audio/wav;base64,UklGRigAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=');
+            audio.play().then(() => {
+                setIsAudioUnlocked(true);
+            }).catch(() => {});
+            
+            window.removeEventListener('click', handleFirstInteraction);
+            window.removeEventListener('touchstart', handleFirstInteraction);
+            window.removeEventListener('keydown', handleFirstInteraction);
+        };
+
+        window.addEventListener('click', handleFirstInteraction);
+        window.addEventListener('touchstart', handleFirstInteraction);
+        window.addEventListener('keydown', handleFirstInteraction);
+
+        return () => {
+            window.removeEventListener('click', handleFirstInteraction);
+            window.removeEventListener('touchstart', handleFirstInteraction);
+            window.removeEventListener('keydown', handleFirstInteraction);
+        };
     }, []);
 
     // Fetch data from backend
@@ -590,27 +612,6 @@ const App: React.FC = () => {
                     </div>
                 )}
             </main>
-
-            {!isAudioUnlocked && (
-                <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4">
-                    <div className="bg-white rounded-3xl p-8 max-w-sm w-full text-center shadow-2xl border border-white/20">
-                        <div className="w-24 h-24 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner">
-                            <i className="fa-solid fa-volume-high text-4xl animate-pulse"></i>
-                        </div>
-                        <h2 className="text-2xl font-bold text-slate-800 mb-2">Sistem Bel Siap</h2>
-                        <p className="text-slate-500 mb-8 text-sm leading-relaxed">
-                            Browser memerlukan interaksi pengguna untuk mengaktifkan suara otomatis. Klik tombol di bawah untuk memulai.
-                        </p>
-                        <button 
-                            onClick={unlockAudio}
-                            className="w-full py-4 bg-red-600 text-white font-bold rounded-2xl hover:bg-red-700 active:scale-95 transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-3"
-                        >
-                            <i className="fa-solid fa-play"></i>
-                            Aktifkan Sistem Bel
-                        </button>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
